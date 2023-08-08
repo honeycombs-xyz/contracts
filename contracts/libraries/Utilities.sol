@@ -12,6 +12,11 @@ library Utilities {
         return (uint256(keccak256(abi.encodePacked(input, salt))) % _max);
     }
 
+    /// @dev Zero-index based salted pseudorandom number based on two inputs and max bound
+    function random(uint256 input, bytes memory salt, uint256 _max) internal pure returns (uint256) {
+        return (uint256(keccak256(abi.encodePacked(input, salt))) % _max);
+    }
+
     /// @dev Convert an integer to a string
     function uint2str(uint256 _i) internal pure returns (string memory _uintAsString) {
         if (_i == 0) {
@@ -37,11 +42,7 @@ library Utilities {
 
     /// @dev Get the smallest non zero number
     function minGt0(uint8 one, uint8 two) internal pure returns (uint8) {
-        return one > two
-            ? two > 0
-                ? two
-                : one
-            : one;
+        return one > two ? two > 0 ? two : one : one;
     }
 
     /// @dev Get the smaller number
@@ -59,6 +60,16 @@ library Utilities {
         unchecked {
             result = (one >> 1) + (two >> 1) + (one & two & 1);
         }
+    }
+
+    /// @dev Get the absolute difference between two numbers
+    function absDiff(uint8 one, uint8 two) internal pure returns (uint8) {
+        return one > two ? one - two : two - one;
+    }
+
+    /// @dev Swap two numbers
+    function swap(uint16 one, uint16 two) internal pure returns (uint16, uint16) {
+        return (two, one);
     }
 
     /// @dev Get the days since another date (input is seconds)
