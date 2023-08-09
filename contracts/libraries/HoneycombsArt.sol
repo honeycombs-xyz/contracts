@@ -352,7 +352,7 @@ library HoneycombsArt {
         // Compute grid properties.
         uint16 rowDistance = HEXAGON_WIDTH - (0.25 * HEXAGON_WIDTH - 0.75 * HEXAGON_STROKE_WIDTH);
         uint16 columnDistance = HEXAGON_WIDTH / 2;
-        uint16 gridWidth = honeycombGrid.maxRowCount * HEXAGON_WIDTH + HEXAGON_STROKE_WIDTH;
+        uint16 gridWidth = honeycombGrid.longestRowCount * HEXAGON_WIDTH + HEXAGON_STROKE_WIDTH;
         uint16 gridHeight = honeycombGrid.rows * HEXAGON_HEIGHT + HEXAGON_STROKE_WIDTH;
 
         // Swap variables if it is a flat top hexagon.
@@ -392,13 +392,13 @@ library HoneycombsArt {
                     abi.encodePacked("hexagonsInRow", Utilities.uint2str(i)),
                     MAX_HEXAGONS_PER_ROW - 1
                 ) + 1; // prettier-ignore
-            honeycombGrid.maxRowCount = Utilities.max(hexagonsInRow[i], honeycombGrid.maxRowCount);
+            honeycombGrid.longestRowCount = Utilities.max(hexagonsInRow[i], honeycombGrid.longestRowCount);
         }
 
         int8 lastRowEvenOdd = -1; // Helps avoid overlapping hexagons: -1 = unset, 0 = even, 1 = odd
         // Create random grid. Only working with pointy tops for simplicity.
         for (uint8 i; i < honeycombGrid.rows; i++) {
-            uint8 firstX = honeycombGrid.maxRowCount - hexagonsInRow[i];
+            uint8 firstX = honeycombGrid.longestRowCount - hexagonsInRow[i];
 
             // Increment firstX if last row's evenness/oddness is same as this rows and update with current.
             if (lastRowEvenOdd == firstX % 2) firstX++;
@@ -421,7 +421,7 @@ library HoneycombsArt {
         // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
         honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
         uint8 flatTopRows = honeycombGrid.rows * 2 - 1;
-        honeycombGrid.maxRowCount = honeycombGrid.rows;
+        honeycombGrid.longestRowCount = honeycombGrid.rows;
         honeycombGrid.totalGradients = data.baseHexagonType == HEXAGON_TYPE.POINTY ? honeycombGrid.rows : flatTopRows;
 
         // Create grid based on hexagon base type.
@@ -477,7 +477,7 @@ library HoneycombsArt {
 
         // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
         honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
-        honeycombGrid.maxRowCount = honeycombGrid.rows / 2 + 1;
+        honeycombGrid.longestRowCount = honeycombGrid.rows / 2 + 1;
         honeycombGrid.totalGradients = honeycombGrid.rows;
 
         // Create diamond grid. Both flat top and pointy top result in the same grid, so no need to check hexagon type.
@@ -503,7 +503,7 @@ library HoneycombsArt {
         // Get random rows from 2 to MAX_HEXAGONS_PER_ROW.
         honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW - 1) + 2;
         uint8 flatTopRows = honeycombGrid.rows * 2 - 1;
-        honeycombGrid.maxRowCount = honeycombGrid.rows;
+        honeycombGrid.longestRowCount = honeycombGrid.rows;
         honeycombGrid.totalGradients = data.baseHexagonType == HEXAGON_TYPE.POINTY ? honeycombGrid.rows : flatTopRows;
 
         // Create grid based on hexagon base type.
@@ -646,7 +646,7 @@ library HoneycombsArt {
                     data.gradientsData.gradients,
                 '</defs>',
                 '<rect width="', canvasWidth, '" height="', canvasHeight, '" fill="', data.canvasColor, '"/>',
-                generateHoneycombs(data),
+                generateHoneycomb(data),
                 '<rect width="', canvasWidth, '" height="', canvasHeight, '" fill="transparent">',
                     '<animate attributeName="width" from="', canvasWidth, '" to="0" dur="0.2s" fill="freeze" ',
                         'begin="click" id="animation"/>',
@@ -656,7 +656,7 @@ library HoneycombsArt {
     }
 }
 
-/// @dev Bag holding all data relevant for rendering.
+/// @dev All data relevant for rendering.
 struct HoneycombRenderData {
     IHoneycombs.Honeycomb honeycomb;
     string canvasColor;
@@ -687,7 +687,7 @@ struct HoneycombRenderData {
 /// @dev All data relevant for the grid.
 struct HoneycombGrid {
     uint8 rows; // number of rows in the grid
-    uint8 maxRowCount; // largest row size in the grid for centering purposes
+    uint8 longestRowCount; // largest row size in the grid for centering purposes
     uint8 totalGradients; // total number of gradients for gradient generation
     Hexagon[] hexagons; // all hexagons
 }
