@@ -9,7 +9,6 @@ import "./standards/HONEYCOMBS721.sol";
 
 /**
     TODO List:
-    - [] Add a way to mint a new Honeycomb - when is SVG generated?
     - [] Add product conditions for when not allowed to mint a new Honeycomb
     - [] Verify and remove MetadataUpdate functionality - used originally for compositing / sacrificing
  */
