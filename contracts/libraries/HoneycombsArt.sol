@@ -6,13 +6,15 @@ import "./Colors.sol";
 import "./Utilities.sol";
 
 /**
-    TODO List:
+    TODO
     - [] Verify base stroke width should be 8 as constant or based on hexagon size
     - [] Verify max hexagons per row and column should be 9 as constant or formulas
-    - [] Comment the rendering data struct object
-    - [] Move positioning into the grid functions
+    - [] Implement floating point math for hexagon stroke width
+    - [] Verify CANVAS_WIDTH, etc should be global (in renderingData) or constant or as is?
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
     - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid()
+    - [] Add logic for isRevealed for commit and reveal scheme
+    - [] Verify public/internal and view/pure for all functions
  */
 
 /**
@@ -54,6 +56,11 @@ library HoneycombsArt {
     /// @dev The different shapes of the honeycomb.
     function getShape(uint8 index) public pure returns (string[4] memory) {
         return SHAPE(index);
+    }
+
+    /// @dev The different durations.
+    function getDurations() public pure returns (uint8[4] memory) {
+        return [10, 40, 80, 240];
     }
 
     /// @dev Load a honeycomb from storage and fill its current state settings.
@@ -298,107 +305,92 @@ library HoneycombsArt {
         );
     }
 
-    /// @dev Generate the SVG code for all honeycombs in a given token.
-    /// @param data The data object containing rendering settings.
-    function generateHoneycombs(HoneycombRenderData memory data) public pure returns (bytes memory) {
-        bytes memory honeycombsBytes;
-        string[80] memory allColors = Colors.COLORS();
-
-        uint8 honeycombsCount = data.count;
-        for (uint8 i; i < honeycombsCount; i++) {
-            // Compute row settings.
-            data.indexInRow = i % data.perRow;
-            data.isNewRow = data.indexInRow == 0 && i > 0;
-
-            // Compute offsets.
-            if (data.isNewRow) data.rowY += data.spaceY;
-            if (data.isNewRow && data.indent) {
-                if (i == 0) {
-                    data.rowX += data.spaceX / 2;
-                }
-
-                if (i % (data.perRow * 2) == 0) {
-                    data.rowX -= data.spaceX / 2;
-                } else {
-                    data.rowX += data.spaceX / 2;
-                }
-            }
-            string memory translateX = Utilities.uint2str(data.rowX + data.indexInRow * data.spaceX);
-            string memory translateY = Utilities.uint2str(data.rowY);
-            string memory color = data.honeycomb.isRevealed ? data.colors[i] : data.colors[0];
-
-            // Render the current honeycomb.
-            // prettier-ignore
-            honeycombsBytes = abi.encodePacked(honeycombsBytes, abi.encodePacked(
-                '<g transform="translate(', translateX, ', ', translateY, ') scale(', data.scale, ')">',
-                    '<use href="#honeycomb" fill="#', color, '">',
-                        (data.honeycomb.isRevealed && !data.isBlack)
-                            ? fillAnimation(data, data.colorIndexes[i], allColors)
-                            : bytes(''),
-                    '</use>'
-                '</g>'
-            ));
-        }
-
-        return honeycombsBytes;
+    /// @dev Get all gradients data, particularly the svg.
+    /// @param baseHexagonType The base hexagon type.
+    /// @param totalGradients The total number of gradients.
+    function generateGradients(
+        HEXAGON_TYPE baseHexagonType,
+        uint8 totalGradients
+    ) public pure returns (Gradients memory gradients) {
+        // Get the max colors and duration.
     }
 
-    /// @dev Add positioning to the honeycombs (center of canvas).
-    /// @param data The data object containing rendering settings.
-    function addPositioning(
-        HoneycombRenderData memory data,
-        HoneycombGrid memory honeycombGrid
-    ) public pure returns (HoneycombGrid memory) {
-        // Compute grid properties.
-        uint16 rowDistance = HEXAGON_WIDTH - (0.25 * HEXAGON_WIDTH - 0.75 * HEXAGON_STROKE_WIDTH);
-        uint16 columnDistance = HEXAGON_WIDTH / 2;
-        uint16 gridWidth = honeycombGrid.longestRowCount * HEXAGON_WIDTH + HEXAGON_STROKE_WIDTH;
-        uint16 gridHeight = honeycombGrid.rows * HEXAGON_HEIGHT + HEXAGON_STROKE_WIDTH;
+    /// @dev Get hexagon from given grid and hexagon properties.
+    /// @param grid The grid metadata.
+    /// @param xIndex The x index in the grid.
+    /// @param yIndex The y index in the grid.
+    /// @param gradientId The gradient id for the hexagon.
+    function getUpdatedHexagonsSvg(
+        Grid memory grid,
+        uint16 xIndex,
+        uint16 yIndex,
+        uint16 gradientId
+    ) public pure returns (bytes memory) {
+        uint16 x = grid.gridX + xIndex * grid.columnDistance;
+        uint16 y = grid.gridY + yIndex * grid.rowDistance;
 
-        // Swap variables if it is a flat top hexagon.
-        if (data.baseHexagonType == HEXAGON_TYPE.FLAT) {
-            (rowDistance, columnDistance) = Utilities.swap(rowDistance, columnDistance);
+        // prettier-ignore
+        return abi.encodePacked(grid.hexagonsSvg, abi.encodePacked(
+            '<use href="#hexagon" stroke="url(#gradient', Utilities.uint2str(gradientId), ')" ',
+                'x="', Utilities.uint2str(x), '" y="', Utilities.uint2str(y), '"',
+            '/>'
+        ));
+    }
+
+    /// @dev Add positioning to the grid (for centering on canvas).
+    /// @dev Note this function appends attributes to grid object, so returned object has original grid + positioning.
+    /// @param grid The grid metadata.
+    /// @param baseHexagonType The base hexagon type.
+    function addGridPositioning(Grid memory grid, HEXAGON_TYPE baseHexagonType) public pure returns (Grid memory) {
+        // Compute grid properties.
+        grid.rowDistance = HEXAGON_WIDTH - (0.25 * HEXAGON_WIDTH - 0.75 * HEXAGON_STROKE_WIDTH);
+        grid.columnDistance = HEXAGON_WIDTH / 2;
+        uint16 gridWidth = grid.longestRowCount * HEXAGON_WIDTH + HEXAGON_STROKE_WIDTH;
+        uint16 gridHeight = grid.rows * HEXAGON_HEIGHT + HEXAGON_STROKE_WIDTH;
+
+        /**
+         * Swap variables if it is a flat top hexagon (this math assumes pointy top as default). Rotating a flat top
+         * hexagon 90 degrees clockwise results in a pointy top hexagon. This effectively swaps the x and y axis.
+         */
+        if (baseHexagonType == HEXAGON_TYPE.FLAT) {
+            (grid.rowDistance, grid.columnDistance) = Utilities.swap(grid.rowDistance, grid.columnDistance);
             (gridWidth, gridHeight) = Utilities.swap(gridWidth, gridHeight);
         }
 
         // Compute grid positioning.
-        uint16 gridX = (CANVAS_WIDTH - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
-        uint16 gridY = (CANVAS_HEIGHT - gridHeight) / 2;
+        grid.gridX = (CANVAS_WIDTH - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
+        grid.gridY = (CANVAS_HEIGHT - gridHeight) / 2;
 
-        // Add positioning to each hexagon.
-        for (uint256 i; i < honeycombGrid.hexagons.length; i++) {
-            honeycombGrid.hexagons[i].x = gridX + honeycombGrid.hexagons[i].xIndex * columnDistance;
-            honeycombGrid.hexagons[i].y = gridY + honeycombGrid.hexagons[i].yIndex * rowDistance;
-        }
-
-        return honeycombGrid;
+        return grid;
     }
 
     /// @dev Get the honeycomb grid for a random shape.
     /// @param data The data object containing rendering settings.
-    function getRandomGrid(HoneycombRenderData memory data) public pure returns (HoneycombGrid memory) {
-        HoneycombGrid memory honeycombGrid;
+    function getRandomGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
+        Grid memory grid;
 
         // Get random rows from 1 to MAX_HEXAGONS_PER_ROW.
-        honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW) + 1;
-        honeycombGrid.totalGradients = honeycombGrid.rows;
+        grid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW) + 1;
 
         // Get random hexagons in each row from 1 to MAX_HEXAGONS_PER_ROW - 1.
-        uint8[] memory hexagonsInRow = new uint8[](honeycombGrid.rows);
-        for (uint8 i; i < honeycombGrid.rows; i++) {
+        uint8[] memory hexagonsInRow = new uint8[](grid.rows);
+        for (uint8 i; i < grid.rows; i++) {
             hexagonsInRow[i] =
                 Utilities.random(
                     data.honeycomb.seed,
                     abi.encodePacked("hexagonsInRow", Utilities.uint2str(i)),
                     MAX_HEXAGONS_PER_ROW - 1
                 ) + 1; // prettier-ignore
-            honeycombGrid.longestRowCount = Utilities.max(hexagonsInRow[i], honeycombGrid.longestRowCount);
+            grid.longestRowCount = Utilities.max(hexagonsInRow[i], grid.longestRowCount);
         }
+
+        // Determine positioning of entire grid, which is based on the longest row.
+        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
 
         int8 lastRowEvenOdd = -1; // Helps avoid overlapping hexagons: -1 = unset, 0 = even, 1 = odd
         // Create random grid. Only working with pointy tops for simplicity.
-        for (uint8 i; i < honeycombGrid.rows; i++) {
-            uint8 firstX = honeycombGrid.longestRowCount - hexagonsInRow[i];
+        for (uint8 i; i < grid.rows; i++) {
+            uint8 firstX = grid.longestRowCount - hexagonsInRow[i];
 
             // Increment firstX if last row's evenness/oddness is same as this rows and update with current.
             if (lastRowEvenOdd == firstX % 2) firstX++;
@@ -406,49 +398,54 @@ library HoneycombsArt {
 
             // Assign indexes for each hexagon.
             for (uint8 j; j < hexagonsInRow[i]; j++) {
-                honeycombGrid.hexagons.push(Hexagon({xIndex: firstX + (j * 2), yIndex: i, gradientId: i + 1}));
+                uint8 xIndex = firstX + (j * 2);
+                grid.hexagonsSvg = getUpdatedHexagonsSvg(grid.hexagonsSvg, grid, xIndex, i, i + 1);
             }
         }
 
-        return honeycombGrid;
+        grid.totalGradients = grid.rows;
+        return grid;
     }
 
     /// @dev Get the honeycomb grid for a hexagon shape.
     /// @param data The data object containing rendering settings.
-    function getHexagonGrid(HoneycombRenderData memory data) public pure returns (HoneycombGrid memory) {
-        HoneycombGrid memory honeycombGrid;
+    function getHexagonGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
+        Grid memory grid;
 
         // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
-        honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
-        uint8 flatTopRows = honeycombGrid.rows * 2 - 1;
-        honeycombGrid.longestRowCount = honeycombGrid.rows;
-        honeycombGrid.totalGradients = data.baseHexagonType == HEXAGON_TYPE.POINTY ? honeycombGrid.rows : flatTopRows;
+        grid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
+
+        // Determine positioning of entire grid, which is based on the longest row.
+        grid.longestRowCount = grid.rows;
+        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
 
         // Create grid based on hexagon base type.
         if (data.baseHexagonType == HEXAGON_TYPE.POINTY) {
-            for (uint8 i; i < honeycombGrid.rows; i++) {
+            grid.totalGradients = grid.rows;
+
+            for (uint8 i; i < grid.rows; i++) {
                 // Compute hexagons in row.
-                uint8 hexagonsInRow = honeycombGrid.rows - Utilities.absDiff(honeycombGrid.rows / 2, i);
+                uint8 hexagonsInRow = grid.rows - Utilities.absDiff(grid.rows / 2, i);
 
                 // Assign indexes for each hexagon.
                 for (uint8 j; j < hexagonsInRow; j++) {
-                    honeycombGrid.hexagons.push(
-                        Hexagon({xIndex: (honeycombGrid.rows - hexagonsInRow) + (j * 2), yIndex: i, gradientId: i + 1})
-                    );
+                    uint8 xIndex = (grid.rows - hexagonsInRow) + (j * 2);
+                    grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
                 }
             }
         } else if (data.baseHexagonType == HEXAGON_TYPE.FLAT) {
+            uint8 flatTopRows = grid.rows * 2 - 1;
+            grid.totalGradients = flatTopRows;
+
             for (uint8 i; i < flatTopRows; i++) {
                 // Determine hexagons in row.
                 uint8 hexagonsInRow;
-                if (i < honeycombGrid.rows / 2) {
+                if (i < grid.rows / 2) {
                     // ascending, i.e. rows = 1 2 3 4 5 when rows = 5
                     hexagonsInRow = i / 2 + 1;
-                } else if (i < flatTopRows - honeycombGrid.rows / 2 - 1) {
+                } else if (i < flatTopRows - grid.rows / 2 - 1) {
                     // alternate between rows / 2 + 1 and rows / 2 every other row
-                    hexagonsInRow = (honeycombGrid.rows / 2 + i) % 2 == 0
-                        ? honeycombGrid.rows / 2 + 1
-                        : honeycombGrid.rows / 2;
+                    hexagonsInRow = (grid.rows / 2 + i) % 2 == 0 ? grid.rows / 2 + 1 : grid.rows / 2;
                 } else {
                     // descending, i.e. rows = 5, 4, 3, 2, 1 when rows = 5
                     hexagonsInRow = flatTopRows - i;
@@ -456,68 +453,72 @@ library HoneycombsArt {
 
                 // Assign indexes for each hexagon.
                 for (uint8 j; j < hexagonsInRow; j++) {
-                    honeycombGrid.hexagons.push(
-                        Hexagon({
-                            xIndex: (honeycombGrid.rows - hexagonsInRow) - honeycombGrid.rows / 2 + (j * 2),
-                            yIndex: i,
-                            gradientId: i + 1
-                        })
-                    );
+                    uint8 xIndex = (grid.rows - hexagonsInRow) - grid.rows / 2 + (j * 2);
+                    grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
                 }
             }
         }
 
-        return honeycombGrid;
+        return grid;
     }
 
     /// @dev Get the honeycomb grid for a diamond shape.
     /// @param data The data object containing rendering settings.
-    function getDiamondGrid(HoneycombRenderData memory data) public pure returns (HoneycombGrid memory) {
-        HoneycombGrid memory honeycombGrid;
+    function getDiamondGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
+        Grid memory grid;
 
         // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
-        honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
-        honeycombGrid.longestRowCount = honeycombGrid.rows / 2 + 1;
-        honeycombGrid.totalGradients = honeycombGrid.rows;
+        grid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
+
+        // Determine positioning of entire grid, which is based on the longest row.
+        grid.longestRowCount = grid.rows / 2 + 1;
+        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
 
         // Create diamond grid. Both flat top and pointy top result in the same grid, so no need to check hexagon type.
-        for (uint8 i; i < honeycombGrid.rows; i++) {
+        for (uint8 i; i < grid.rows; i++) {
             // Determine hexagons in row. Pattern is ascending/descending sequence, i.e 1 2 3 2 1 when rows = 5.
-            uint8 hexagonsInRow = i < honeycombGrid.rows / 2 ? i + 1 : honeycombGrid.rows - i;
-            uint8 firstXInRow = i < honeycombGrid.rows / 2 ? honeycombGrid.rows / 2 - i : i - honeycombGrid.rows / 2;
+            uint8 hexagonsInRow = i < grid.rows / 2 ? i + 1 : grid.rows - i;
+            uint8 firstXInRow = i < grid.rows / 2 ? grid.rows / 2 - i : i - grid.rows / 2;
 
             // Assign indexes for each hexagon.
             for (uint8 j; j < hexagonsInRow; j++) {
-                honeycombGrid.hexagons.push(Hexagon({xIndex: firstXInRow + (j * 2), yIndex: i, gradientId: i + 1}));
+                uint8 xIndex = firstXInRow + (j * 2);
+                grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
             }
         }
 
-        return honeycombGrid;
+        grid.totalGradients = grid.rows;
+        return grid;
     }
 
     /// @dev Get the honeycomb grid for a triangle shape.
     /// @param data The data object containing rendering settings.
-    function getTriangleGrid(HoneycombRenderData memory data) public pure returns (HoneycombGrid memory) {
-        HoneycombGrid memory honeycombGrid;
+    function getTriangleGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
+        Grid memory grid;
 
         // Get random rows from 2 to MAX_HEXAGONS_PER_ROW.
-        honeycombGrid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW - 1) + 2;
-        uint8 flatTopRows = honeycombGrid.rows * 2 - 1;
-        honeycombGrid.longestRowCount = honeycombGrid.rows;
-        honeycombGrid.totalGradients = data.baseHexagonType == HEXAGON_TYPE.POINTY ? honeycombGrid.rows : flatTopRows;
+        grid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW - 1) + 2;
+
+        // Determine positioning of entire grid, which is based on the longest row.
+        grid.longestRowCount = grid.rows;
+        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
 
         // Create grid based on hexagon base type.
         if (data.baseHexagonType == HEXAGON_TYPE.POINTY) {
+            grid.totalGradients = grid.rows;
+
             // Iterate through rows - will only be north/south facing (design).
-            for (uint8 i; i < honeycombGrid.rows; i++) {
+            for (uint8 i; i < grid.rows; i++) {
                 // Assign indexes for each hexagon. Each row has i + 1 hexagons.
                 for (uint8 j; j < i + 1; j++) {
-                    honeycombGrid.hexagons.push(
-                        Hexagon({xIndex: honeycombGrid.rows - 1 - i + (j * 2), yIndex: i, gradientId: i + 1})
-                    );
+                    uint8 xIndex = grid.rows - 1 - i + (j * 2);
+                    grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
                 }
             }
         } else if (data.baseHexagonType == HEXAGON_TYPE.FLAT) {
+            uint8 flatTopRows = grid.rows * 2 - 1;
+            grid.totalGradients = flatTopRows;
+
             // Iterate through rows - will only be west/east facing (design).
             for (uint8 i; i < flatTopRows; i++) {
                 // Determine hexagons in row. First half is ascending. Second half is descending.
@@ -532,99 +533,90 @@ library HoneycombsArt {
 
                 // Assign indexes for each hexagon. Each row has i + 1 hexagons.
                 for (uint8 j; j < i + 1; j++) {
-                    honeycombGrid.hexagons.push(Hexagon({xIndex: (i % 2) + (j * 2), yIndex: i, gradientId: i + 1}));
+                    uint8 xIndex = (i % 2) + (j * 2);
+                    grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
                 }
             }
         }
 
-        return honeycombGrid;
+        return grid;
     }
 
-    /// @dev Create the honeycomb grid.
+    /// @dev Generate the overall honeycomb grid, including the final svg.
     /// @dev Using double coordinates: https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
     /// @param data The data object containing rendering settings.
-    function getHoneycombGrid(HoneycombRenderData memory data) public pure returns (HoneycombGrid memory) {
-        HoneycombGrid memory honeycombGrid;
+    function generateGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
+        // Carry through original grid data.
+        Grid memory grid = data.grid;
 
-        // Get grid based on shape.
-        if (data.shape == SHAPE.TRIANGLE) {
-            honeycombGrid = getTriangleGrid(data);
-        } else if (data.shape == SHAPE.DIAMOND) {
-            honeycombGrid = getDiamondGrid(data);
-        } else if (data.shape == SHAPE.HEXAGON) {
-            honeycombGrid = getHexagonGrid(data);
-        } else if (data.shape == SHAPE.RANDOM) {
-            honeycombGrid = getRandomGrid(data);
+        // Get grid data based on shape, which includes the hexagonsSvg and totalGradients required.
+        Grid memory gridData; // partial and temporary grid object used to store supportive variables
+        if (grid == SHAPE.TRIANGLE) {
+            gridData = getTriangleGrid(data);
+        } else if (grid == SHAPE.DIAMOND) {
+            gridData = getDiamondGrid(data);
+        } else if (grid == SHAPE.HEXAGON) {
+            gridData = getHexagonGrid(data);
+        } else if (grid == SHAPE.RANDOM) {
+            gridData = getRandomGrid(data);
         }
 
-        // Add positioning data for hexagon.
-        honeycombGrid = addPositioning(data, honeycombGrid);
-
-        return honeycombGrid;
-    }
-
-    /// @dev Generate the SVG code for the overall honeycomb grid.
-    /// @param data The data object containing rendering settings.
-    function generateHoneycomb(HoneycombRenderData memory data) public pure returns (bytes memory) {
-        bytes memory honeycombSvg;
-
-        // Create the honeycomb grid.
-        HoneycombGrid memory honeycombGrid = getHoneycombGrid(data);
-
-        // Formulate SVG string for hexagons in the grid.
-        bytes memory hexagonsSvg;
-        for (uint8 i; i < honeycombGrid.count; i++) {
-            // prettier-ignore
-            hexagonsSvg = abi.encodePacked(hexagonsSvg, abi.encodePacked(
-                '<use href="#hexagon" stroke="url(#gradient', Utilities.uint2str(honeycombGrid[i].gradient), ')" ',
-                    'x="', Utilities.uint2str(honeycombGrid[i].x), '" y="', Utilities.uint2str(honeycombGrid[i].y), '"',
-                '/>'
-            ));
-        }
-
-        // Render the current honeycomb.
+        // Append data to the grid object.
         // prettier-ignore
-        honeycombSvg = abi.encodePacked(
+        grid.svg = abi.encodePacked(
             '<g transform="scale(1) rotate(', 
-                    Utilities.uint2str(data.rotation) ,',', 
-                    Utilities.uint2str(CANVAS_WIDTH/2) ,',', 
-                    Utilities.uint2str(CANVAS_HEIGHT/2), '">',
-                hexagonsSvg,
+                    Utilities.uint2str(grid.rotation) ,',', 
+                    Utilities.uint2str(data.canvas.width / 2) ,',', 
+                    Utilities.uint2str(data.canvas.height / 2), '">',
+                gridData.hexagonsSvg,
             '</g>'
         );
+        grid.totalGradients = gridData.totalGradients;
 
-        return honeycombSvg;
+        return grid;
     }
 
-    /// @dev Collect relevant rendering data for easy access across functions.
+    /// @dev Generate relevant rendering data for the honeycomb.
     /// @param honeycomb Our current honeycomb loaded from storage.
     /// @param honeycombs The DB containing all honeycombs.
-    function collectRenderData(
+    function generateHoneycombRenderData(
         IHoneycombs.Honeycomb memory honeycomb,
         IHoneycombs.Honeycombs storage honeycombs
     ) public view returns (HoneycombRenderData memory data) {
         // Carry through base settings.
         data.honeycomb = honeycomb;
 
-        // Get the canvas color.
-        data.canvasColor = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
+        // Set the canvas properties.
+        data.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
+        data.canvas.width = CANVAS_WIDTH;
+        data.canvas.height = CANVAS_HEIGHT;
 
         // Get the base hexagon properties.
-        uint8 baseHexagonType = Utilities.random(honeycomb.seed, "hexagonType", 2);
-        data.baseHexagonType = baseHexagonType == 0 ? HEXAGON_TYPE.FLAT : HEXAGON_TYPE.POINTY;
-        data.baseHexagonPath = getHexagonPath(data.baseHexagonType);
-        data.baseHexagonStrokeWidth =
+        data.baseHexagon.hexagonType = Utilities.random(honeycomb.seed, "hexagonType", 2) == 0
+            ? HEXAGON_TYPE.FLAT
+            : HEXAGON_TYPE.POINTY;
+        data.baseHexagon.path = getHexagonPath(data.baseHexagon.hexagonType);
+        data.baseHexagon.strokeWidth =
             Utilities.random(honeycomb.seed, "strokeWidth", MAX_HEXAGON_STROKE_WIDTH) +
             MIN_HEXAGON_STROKE_WIDTH;
-        data.baseHexagonFillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0 ? "white" : "black";
+        data.baseHexagon.fillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0 ? "white" : "black";
 
-        // Get the honeycomb properties.
-        data.shape = getShape([Utilities.random(honeycomb.seed, "gridShape", 4)]);
-        data.rotation = data.shape == SHAPE.TRIANGLE // triangles are exceptions as artist design choices
+        /**
+         * Get the grid properties, including the actual svg.
+         * Note: Random shapes must only have pointy top hexagon bases (artist design choice).
+         * Note: Triangles have unique rotation options (artist design choice).
+         */
+        data.grid.shape = getShape([Utilities.random(honeycomb.seed, "gridShape", 4)]);
+        if (data.grid.shape == SHAPE.RANDOM) data.baseHexagon.hexagonType = HEXAGON_TYPE.POINTY;
+
+        data.grid.rotation = data.grid.shape == SHAPE.TRIANGLE
             ? Utilities.random(honeycomb.seed, "rotation", 4) * 90
             : Utilities.random(honeycomb.seed, "rotation", 12) * 30;
 
-        // Get the gradient properties.
+        data.grid = generateGrid(data);
+
+        // Get the gradient properties, including the actual svg.
+        data.gradients = generateGradients(data.baseHexagon.hexagonType, data.grid.totalGradients);
     }
 
     /// @dev Generate the complete SVG code for a given Honeycomb.
@@ -634,22 +626,26 @@ library HoneycombsArt {
         IHoneycombs.Honeycomb memory honeycomb,
         IHoneycombs.Honeycombs storage honeycombs
     ) public view returns (bytes memory) {
-        HoneycombRenderData memory data = collectRenderData(honeycomb, honeycombs);
-        string canvasWidth = Utilities.uint2str(CANVAS_WIDTH);
-        string canvasHeight = Utilities.uint2str(CANVAS_HEIGHT);
+        HoneycombRenderData memory data = generateHoneycombRenderData(honeycomb, honeycombs);
 
         // prettier-ignore
         return abi.encodePacked(
-            '<svg viewBox="0 0 ', canvasWidth, ' ', canvasHeight, '"fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:', data.canvasColor, ';">',
+            '<svg viewBox="0 0 ', Utilities.uint2str(data.canvas.width), ' ', Utilities.uint2str(data.canvas.width), 
+                    '"fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:', 
+                    data.canvas.color, ';">',
                 '<defs>',
-                    '<path id="hexagon" fill="', data.baseHexagonFillColor  ,'" stroke-width="', Utilities.uint2str(data.baseHexagonStrokeWidth) ,'" d="', data.baseHexagonPath ,'" />',
-                    data.gradientsData.gradients,
+                    '<path id="hexagon" fill="', data.baseHexagon.fillColor,
+                        '" stroke-width="', Utilities.uint2str(data.baseHexagon.strokeWidth),
+                        '" d="', data.baseHexagon.path ,'" />',
+                    data.gradients.svg,
                 '</defs>',
-                '<rect width="', canvasWidth, '" height="', canvasHeight, '" fill="', data.canvasColor, '"/>',
-                generateHoneycomb(data),
-                '<rect width="', canvasWidth, '" height="', canvasHeight, '" fill="transparent">',
-                    '<animate attributeName="width" from="', canvasWidth, '" to="0" dur="0.2s" fill="freeze" ',
-                        'begin="click" id="animation"/>',
+                '<rect width="', Utilities.uint2str(data.canvas.width),
+                    '" height="', Utilities.uint2str(data.canvas.width), '" fill="', data.canvas.color, '"/>',
+                data.grid.svg,
+                '<rect width="', Utilities.uint2str(data.canvas.width),
+                    '" height="', Utilities.uint2str(data.canvas.width), '" fill="transparent">',
+                    '<animate attributeName="width" from="', Utilities.uint2str(data.canvas.width),
+                        '" to="0" dur="0.2s" fill="freeze" begin="click" id="animation"/>',
                 '</rect>',
             '</svg>'
         );
@@ -659,44 +655,53 @@ library HoneycombsArt {
 /// @dev All data relevant for rendering.
 struct HoneycombRenderData {
     IHoneycombs.Honeycomb honeycomb;
-    string canvasColor;
-    HEXAGON_TYPE baseHexagonType;
-    string baseHexagonPath;
-    uint8 baseHexagonStrokeWidth;
-    string baseHexagonFillColor;
-    uint8 shape;
-    uint16 rotation;
-    uint256[] colorIndexes;
-    string[] colors;
-    string duration;
-    string scale;
-    uint32 seed;
-    uint16 rowX;
-    uint16 rowY;
-    uint8 count;
-    uint8 spaceX;
-    uint8 spaceY;
-    uint8 perRow;
-    uint8 indexInRow;
-    uint8 isIndented;
-    bool isNewRow;
-    bool isBlack;
-    bool indent;
+    Canvas canvas;
+    BaseHexagon baseHexagon;
+    Grid grid;
+    Gradients gradient;
+}
+
+/// @dev All data relevant to the canvas.
+struct Canvas {
+    string color; // background color of canvas
+    uint16 width; // width of canvas
+    uint16 height; // height of canvas
+}
+
+/// @dev All data relevant to the base hexagon.
+struct BaseHexagon {
+    string path; // path of base hexagon
+    string fillColor; // fill color of base hexagon
+    uint8 strokeWidth; // stroke width size in user units (pixels)
+    HEXAGON_TYPE hexagonType; // type of base hexagon, i.e. flat or pointy
 }
 
 /// @dev All data relevant for the grid.
-struct HoneycombGrid {
+struct Grid {
+    bytes hexagonsSvg; // final svg for all hexagons
+    bytes svg; // final svg for the grid
+    uint16 gridX; // x coordinate of the grid
+    uint16 gridY; // y coordinate of the grid
+    uint16 rowDistance; // distance between rows in user units (pixels)
+    uint16 columnDistance; // distance between columns in user units (pixels)
+    uint16 rotation; // rotation of entire shape in degrees
+    uint8 shape; // shape of the grid, i.e. triangle, diamond, hexagon, random
+    uint8 totalGradients; // number of gradients required based on the grid size and shape
     uint8 rows; // number of rows in the grid
     uint8 longestRowCount; // largest row size in the grid for centering purposes
-    uint8 totalGradients; // total number of gradients for gradient generation
-    Hexagon[] hexagons; // all hexagons
 }
 
-/// @dev All data relevant for a single hexagon.
-struct Hexagon {
-    uint8 x; // x coordinate, in SVG user units (pixels)
-    uint8 y; // y coordinate, in SVG user units (pixels)
-    uint8 xIndex; // x index in the grid, using doubled coordinates
-    uint8 yIndex; // y index in the grid, using doubled coordinates
-    uint8 gradientId; // gradient id for the hexagon
+/// @dev All data relevant for the gradients.
+struct Gradients {
+    Gradient[] gradients; // all gradients
+    bytes svg; // final svg for the gradients
+    uint16 duration; // duration of animation in seconds
+    uint8 maxColors; // max number of colors in all the gradients, aka chrome
+}
+
+/// @dev All data relevant for a single gradient.
+struct Gradient {
+    bytes svg; // final svg for the gradient
+    string colors; // colors of the gradient
+    uint8 id; // id of the gradient
 }
