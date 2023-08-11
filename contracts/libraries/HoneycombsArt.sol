@@ -21,7 +21,9 @@ import "./Utilities.sol";
     
     - [] Add logic for isRevealed for commit and reveal scheme
     - [] Add logic for probabilities of some random variables
-    - [!!] Implement getHoneycomb()
+    - [!!] Diff between storage and memory for stored structs?
+    - [!!] Does both stored and honeycomb struct need to have seed?
+    - [!!] Ensure code compiles
  */
 
 /**
@@ -31,8 +33,6 @@ import "./Utilities.sol";
 library HoneycombsArt {
     enum HEXAGON_TYPE { FLAT, POINTY } // prettier-ignore
     enum SHAPE { TRIANGLE, DIAMOND, HEXAGON, RANDOM } // prettier-ignore
-    enum DURATION { RAVE, NORMAL, SOOTHING, MEDITATIVE } // prettier-ignore
-    enum CHROME { MONOCHROME, BICHROME, TRICHROME, TETRACHROME, PENTACHROME, HEXACHROME, MANY } // prettier-ignore
 
     /// @dev The width and height of the canvas.
     uint16 public constant CANVAS_WIDTH = 810;
@@ -53,6 +53,12 @@ library HoneycombsArt {
     uint8 public constant MIN_HEXAGON_STROKE_WIDTH = 3;
     uint8 public constant MAX_HEXAGON_STROKE_WIDTH = 15;
 
+    /// @dev All data relevant for a gradient stop.
+    struct GradientStop {
+        string color; // color of the gradient stop
+        bytes animationColorValues; // color values for the animation
+    }
+
     /// @dev The paths for a 72x72 px hexagon.
     function getHexagonPath(HEXAGON_TYPE pathType) public pure returns (string memory) {
         if (pathType == HEXAGON_TYPE.FLAT) {
@@ -62,215 +68,19 @@ library HoneycombsArt {
         }
     }
 
-    /// @dev Get from different shapes of the honeycomb.
-    function getShape(uint8 index) public pure returns (uint8 memory) {
-        return SHAPE(index); // purely for readability
+    /// @dev Get from different shapes of the honeycomb. Corresponds to shape trait in HoneycombsMetadata.sol.
+    function getShape(uint8 index) public pure returns (uint8) {
+        return uint8([SHAPE.TRIANGLE, SHAPE.DIAMOND, SHAPE.HEXAGON, SHAPE.RANDOM][index]);
     }
 
-    /// @dev Get from different chromes or max primary colors.
-    function getChrome(uint8 index) public pure returns (uint8 memory) {
-        return index == CHROME.MANY ? Colors.COLORS().length : CHROME(index);
+    /// @dev Get from different chromes or max primary colors. Corresponds to chrome trait in HoneycombsMetadata.sol.
+    function getChrome(uint8 index) public pure returns (uint8) {
+        return uint8([0, 1, 2, 3, 4, 5, 6, Colors.COLORS().length][index]);
     }
 
-    /// @dev get from different durations.
-    function getDuration(uint8 index) public pure returns (uint8 memory) {
-        return index == DURATION.RAVE ? 10 : index == DURATION.NORMAL ? 40 : index == DURATION.SOOTHING ? 80 : 240;
-    }
-
-    /// @dev Load a honeycomb from storage and fill its current state settings.
-    /// @param tokenId The id of the honeycomb to fetch.
-    /// @param honeycombs The DB containing all honeycombs.
-    function getHoneycomb(
-        uint256 tokenId,
-        IHoneycombs.Honeycombs storage honeycombs
-    ) public view returns (IHoneycombs.Honeycomb memory honeycomb) {
-        IHoneycombs.StoredHoneycomb memory stored = honeycombs.all[tokenId];
-        stored.divisorIndex = divisorIndex; // Override in case we're fetching specific state.
-        honeycomb.stored = stored;
-
-        // Set up the source of randomness + seed for this Honeycomb.
-        uint128 randomness = honeycombs.epochs[stored.epoch].randomness;
-        honeycomb.seed = (uint256(keccak256(abi.encodePacked(randomness, stored.seed))) % type(uint128).max);
-
-        // Helpers
-        honeycomb.isRoot = divisorIndex == 0;
-        honeycomb.isRevealed = randomness > 0;
-        honeycomb.hasManyHoneycombs = divisorIndex < 6;
-        honeycomb.composite = !honeycomb.isRoot && divisorIndex < 7 ? stored.composites[divisorIndex - 1] : 0;
-
-        // Token properties
-        honeycomb.colorBand = colorBandIndex(honeycomb, divisorIndex);
-        honeycomb.gradient = gradientIndex(honeycomb, divisorIndex);
-        honeycomb.honeycombsCount = DIVISORS()[divisorIndex];
-        honeycomb.speed = uint8(2 ** (honeycomb.seed % 3));
-        honeycomb.direction = uint8(honeycomb.seed % 2);
-    }
-
-    /// @dev Query the gradient of a given honeycomb at a certain honeycomb count.
-    /// @param honeycomb The honeycomb we want to get the gradient for.
-    /// @param divisorIndex The honeycomb divisor in question.
-    function gradientIndex(IHoneycombs.Honeycomb memory honeycomb, uint8 divisorIndex) public pure returns (uint8) {
-        uint256 n = Utilities.random(honeycomb.seed, "gradient", 100);
-
-        return
-            divisorIndex == 0 ? n < 20 ? uint8(1 + (n % 6)) : 0 : divisorIndex < 6
-                ? honeycomb.stored.gradients[divisorIndex - 1]
-                : 0;
-    }
-
-    /// @dev Query the color band of a given honeycomb at a certain honeycomb count.
-    /// @param honeycomb The honeycomb we want to get the color band for.
-    /// @param divisorIndex The honeycomb divisor in question.
-    function colorBandIndex(IHoneycombs.Honeycomb memory honeycomb, uint8 divisorIndex) public pure returns (uint8) {
-        uint256 n = Utilities.random(honeycomb.seed, "band", 120);
-
-        return
-            divisorIndex == 0
-                ? (n > 80 ? 0 : n > 40 ? 1 : n > 20 ? 2 : n > 10 ? 3 : n > 4 ? 4 : n > 1 ? 5 : 6)
-                : divisorIndex < 6
-                ? honeycomb.stored.colorBands[divisorIndex - 1]
-                : 6;
-    }
-
-    /// @dev Generate indexes for the color slots of honeycomb parents (up to the Colors.COLORS themselves).
-    /// @param divisorIndex The current divisorIndex to query.
-    /// @param honeycomb The current honeycomb to investigate.
-    /// @param honeycombs The DB containing all honeycombs.
-    function colorIndexes(
-        uint8 divisorIndex,
-        IHoneycombs.Honeycomb memory honeycomb,
-        IHoneycombs.Honeycombs storage honeycombs
-    ) public view returns (uint256[] memory) {
-        uint8[8] memory divisors = DIVISORS();
-        uint256 honeycombsCount = divisors[divisorIndex];
-        uint256 seed = honeycomb.seed;
-        uint8 colorBand = COLOR_BANDS()[colorBandIndex(honeycomb, divisorIndex)];
-        uint8 gradient = GRADIENTS()[gradientIndex(honeycomb, divisorIndex)];
-
-        // If we're a composited honeycomb, we choose colors only based on
-        // the slots available in our parents. Otherwise,
-        // we choose based on our available spectrum.
-        uint256 possibleColorChoices = divisorIndex > 0 ? divisors[divisorIndex - 1] * 2 : 80;
-
-        // We initialize our index and select the first color
-        uint256[] memory indexes = new uint256[](honeycombsCount);
-        indexes[0] = Utilities.random(seed, possibleColorChoices);
-
-        // If we have more than one honeycomb, continue selecting colors
-        if (honeycomb.hasManyHoneycombs) {
-            if (gradient > 0) {
-                // If we're a gradient honeycomb, we select based on the color band looping around
-                // the 80 possible colors
-                for (uint256 i = 1; i < honeycombsCount; ) {
-                    indexes[i] = (indexes[0] + (((i * gradient * colorBand) / honeycombsCount) % colorBand)) % 80;
-                    unchecked {
-                        ++i;
-                    }
-                }
-            } else if (divisorIndex == 0) {
-                // If we select initial non gradient colors, we just take random ones
-                // available in our color band
-                for (uint256 i = 1; i < honeycombsCount; ) {
-                    indexes[i] = (indexes[0] + Utilities.random(seed + i, colorBand)) % 80;
-                    unchecked {
-                        ++i;
-                    }
-                }
-            } else {
-                // If we have parent honeycombs, we select our colors from their set
-                for (uint256 i = 1; i < honeycombsCount; ) {
-                    indexes[i] = Utilities.random(seed + i, possibleColorChoices);
-                    unchecked {
-                        ++i;
-                    }
-                }
-            }
-        }
-
-        // We resolve our color indexes through our parent tree until we reach the root honeycombs
-        if (divisorIndex > 0) {
-            uint8 previousDivisor = divisorIndex - 1;
-
-            // We already have our current honeycomb, but need the our parent state color indices
-            uint256[] memory parentIndexes = colorIndexes(previousDivisor, honeycomb, honeycombs);
-
-            // We also need to fetch the colors of the honeycomb that was composited into us
-            IHoneycombs.Honeycomb memory composited = getHoneycomb(honeycomb.composite, honeycombs);
-            uint256[] memory compositedIndexes = colorIndexes(previousDivisor, composited, honeycombs);
-
-            // Replace random indices with parent / root color indices
-            uint8 count = divisors[previousDivisor];
-
-            // We always select the first color from our parent
-            uint256 initialBranchIndex = indexes[0] % count;
-            indexes[0] = indexes[0] < count ? parentIndexes[initialBranchIndex] : compositedIndexes[initialBranchIndex];
-
-            // If we don't have a gradient, we continue resolving from our parent for the remaining honeycombs
-            if (gradient == 0) {
-                for (uint256 i; i < honeycombsCount; ) {
-                    uint256 branchIndex = indexes[i] % count;
-                    indexes[i] = indexes[i] < count ? parentIndexes[branchIndex] : compositedIndexes[branchIndex];
-
-                    unchecked {
-                        ++i;
-                    }
-                }
-                // If we have a gradient we base the remaining colors off our initial selection
-            } else {
-                for (uint256 i = 1; i < honeycombsCount; ) {
-                    indexes[i] = (indexes[0] + (((i * gradient * colorBand) / honeycombsCount) % colorBand)) % 80;
-
-                    unchecked {
-                        ++i;
-                    }
-                }
-            }
-        }
-
-        return indexes;
-    }
-
-    /// @dev Fetch all colors of a given Honeycomb.
-    /// @param honeycomb The honeycomb to get colors for.
-    /// @param honeycombs The DB containing all honeycombs.
-    function colors(
-        IHoneycombs.Honeycomb memory honeycomb,
-        IHoneycombs.Honeycombs storage honeycombs
-    ) public view returns (string[] memory, uint256[] memory) {
-        // A fully composited honeycomb has no color.
-        if (honeycomb.stored.divisorIndex == 7) {
-            string[] memory zeroColors = new string[](1);
-            uint256[] memory zeroIndexes = new uint256[](1);
-            zeroColors[0] = "000";
-            zeroIndexes[0] = 999;
-            return (zeroColors, zeroIndexes);
-        }
-
-        // An unrevealed honeycomb is all gray.
-        if (!honeycomb.isRevealed) {
-            string[] memory preRevealColors = new string[](1);
-            uint256[] memory preRevealIndexes = new uint256[](1);
-            preRevealColors[0] = "424242";
-            preRevealIndexes[0] = 0;
-            return (preRevealColors, preRevealIndexes);
-        }
-
-        // Fetch the indices on the original color mapping.
-        uint256[] memory indexes = colorIndexes(honeycomb.stored.divisorIndex, honeycomb, honeycombs);
-
-        // Map over to get the colors.
-        string[] memory honeycombColors = new string[](indexes.length);
-        string[80] memory allColors = Colors.COLORS();
-
-        // Always set the first color.
-        honeycombColors[0] = allColors[indexes[0]];
-
-        // Resolve each additional honeycomb color via their index in Colors.COLORS.
-        for (uint256 i = 1; i < indexes.length; i++) {
-            honeycombColors[i] = allColors[indexes[i]];
-        }
-
-        return (honeycombColors, indexes);
+    /// @dev Get from different animation durations in seconds. Corresponds to duration trait in HoneycombsMetadata.sol.
+    function getDuration(uint8 index) public pure returns (uint8) {
+        return uint8([10, 40, 80, 240][index]);
     }
 
     /// @dev Get the linear gradient's svg.
@@ -313,8 +123,10 @@ library HoneycombsArt {
     }
 
     /// @dev Get the stop for a linear gradient.
-    /// @param data The data object containing rendering settings.
-    function getLinearGradientStopSvg(HoneycombRenderData memory data) public pure returns (GradientStop memory) {
+    /// @param honeycomb The honeycomb data used for rendering.
+    function getLinearGradientStopSvg(
+        IHoneycombs.Honeycomb memory honeycomb
+    ) public pure returns (GradientStop memory) {
         GradientStop memory stop;
 
         // We pick 14 colors for our gradient, which leads to 15 different colors including the initial color.
@@ -322,12 +134,12 @@ library HoneycombsArt {
         string[46] memory allColors = Colors.COLORS();
 
         // Get random stop color.
-        uint8 initialIndex = Utilities.random(data.honeycomb.seed, "linearGradientStop", allColors.length);
+        uint8 initialIndex = Utilities.random(honeycomb.seed, "linearGradientStop", allColors.length);
         stop.color = allColors[initialIndex];
 
         bytes memory values;
         // Forward loop through our color gradient. First and last value is the initial stop color.
-        if (data.gradients.direction == 0) {
+        if (honeycomb.gradients.direction == 0) {
             for (uint256 i; i < count - 2; ) {
                 values = abi.encodePacked(values, "#", allColors[(initialIndex + ((i * 2) % allColors.length))], ";");
                 unchecked {
@@ -366,34 +178,34 @@ library HoneycombsArt {
     }
 
     /// @dev Get all gradients data, particularly the svg.
-    /// @param data The data object containing rendering settings.
-    function generateGradientsSvg(HoneycombRenderData memory data) public pure returns (bytes memory) {
+    /// @param honeycomb The honeycomb data used for rendering.
+    function generateGradientsSvg(IHoneycombs.Honeycomb memory honeycomb) public pure returns (bytes memory) {
         bytes memory svg;
 
         // Initialize mapping of stops (id => svgString) for reuse once we reach the max color count.
         mapping(uint256 => GradientStop) memory stops;
-        GradientStop prevStop = getLinearGradientStopSvg(data.gradients);
+        GradientStop memory prevStop = getLinearGradientStopSvg(honeycomb.gradients);
         stops[0] = prevStop;
 
         // Loop through all gradients and generate the svg.
-        for (uint256 i; i < data.gradients.count; ) {
+        for (uint256 i; i < honeycomb.gradients.count; ) {
             GradientStop memory stop;
 
             // Get next stop.
-            if (stops.length < data.gradients.chrome) {
-                stop = getLinearGradientStopSvg(data.gradients.duration);
+            if (stops.length < honeycomb.gradients.chrome) {
+                stop = getLinearGradientStopSvg(honeycomb.gradients.duration);
                 stops[i + 1] = stop;
             } else {
                 // Randomly select a stop from existing ones.
-                stop = stops[Utilities.random(data.honeycomb.seed, abi.encodePacked("stop", i), stops.length)];
+                stop = stops[Utilities.random(honeycomb.seed, abi.encodePacked("stop", i), stops.length)];
             }
 
             // Get gradients svg based on the base hexagon type.
-            if (data.baseHexagon.hexagonType == HEXAGON_TYPE.POINTY) {
+            if (honeycomb.baseHexagon.hexagonType == HEXAGON_TYPE.POINTY) {
                 bytes memory gradientSvg = getLinearGradientSvg(
                     prevStop,
                     stop,
-                    data.gradients.duration,
+                    honeycomb.gradients.duration,
                     i + 1,
                     0, // x1
                     0, // x2
@@ -408,12 +220,12 @@ library HoneycombsArt {
                 unchecked {
                     ++i;
                 }
-            } else if (data.baseHexagon.hexagonType == HEXAGON_TYPE.FLAT) {
+            } else if (honeycomb.baseHexagon.hexagonType == HEXAGON_TYPE.FLAT) {
                 // Flat tops require two gradients.
                 bytes memory gradient1Svg = getLinearGradientSvg(
                     prevStop,
                     stop,
-                    data.gradients.duration,
+                    honeycomb.gradients.duration,
                     i + 1,
                     0, // x1
                     0, // x2
@@ -425,7 +237,7 @@ library HoneycombsArt {
                 bytes memory gradient2Svg = getLinearGradientSvg(
                     prevStop,
                     stop,
-                    data.gradients.duration,
+                    honeycomb.gradients.duration,
                     i + 2,
                     0, // x1
                     0, // x2
@@ -452,7 +264,7 @@ library HoneycombsArt {
     /// @param yIndex The y index in the grid.
     /// @param gradientId The gradient id for the hexagon.
     function getUpdatedHexagonsSvg(
-        Grid memory grid,
+        IHoneycombs.Grid memory grid,
         uint16 xIndex,
         uint16 yIndex,
         uint16 gradientId
@@ -472,7 +284,10 @@ library HoneycombsArt {
     /// @dev Note this function appends attributes to grid object, so returned object has original grid + positioning.
     /// @param grid The grid metadata.
     /// @param baseHexagonType The base hexagon type.
-    function addGridPositioning(Grid memory grid, HEXAGON_TYPE baseHexagonType) public pure returns (Grid memory) {
+    function addGridPositioning(
+        IHoneycombs.Grid memory grid,
+        HEXAGON_TYPE baseHexagonType
+    ) public pure returns (IHoneycombs.Grid memory) {
         // Compute grid properties.
         grid.rowDistance = HEXAGON_WIDTH - (0.25 * HEXAGON_WIDTH - 0.75 * HEXAGON_STROKE_WIDTH);
         grid.columnDistance = HEXAGON_WIDTH / 2;
@@ -496,19 +311,19 @@ library HoneycombsArt {
     }
 
     /// @dev Get the honeycomb grid for a random shape.
-    /// @param data The data object containing rendering settings.
-    function getRandomGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
-        Grid memory grid;
+    /// @param honeycomb The honeycomb data used for rendering.
+    function getRandomGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
+        IHoneycombs.Grid memory grid;
 
         // Get random rows from 1 to MAX_HEXAGONS_PER_ROW.
-        grid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW) + 1;
+        grid.rows = Utilities.random(honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW) + 1;
 
         // Get random hexagons in each row from 1 to MAX_HEXAGONS_PER_ROW - 1.
         uint8[] memory hexagonsInRow = new uint8[](grid.rows);
         for (uint8 i; i < grid.rows; ) {
             hexagonsInRow[i] =
                 Utilities.random(
-                    data.honeycomb.seed,
+                    honeycomb.seed,
                     abi.encodePacked("hexagonsInRow", Utilities.uint2str(i)),
                     MAX_HEXAGONS_PER_ROW - 1
                 ) + 1; // prettier-ignore
@@ -520,7 +335,7 @@ library HoneycombsArt {
         }
 
         // Determine positioning of entire grid, which is based on the longest row.
-        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
+        grid = addGridPositioning(honeycomb.baseHexagon.hexagonType, grid); // appends to grid object
 
         int8 lastRowEvenOdd = -1; // Helps avoid overlapping hexagons: -1 = unset, 0 = even, 1 = odd
         // Create random grid. Only working with pointy tops for simplicity.
@@ -550,19 +365,19 @@ library HoneycombsArt {
     }
 
     /// @dev Get the honeycomb grid for a hexagon shape.
-    /// @param data The data object containing rendering settings.
-    function getHexagonGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
-        Grid memory grid;
+    /// @param honeycomb The honeycomb data used for rendering.
+    function getHexagonGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
+        IHoneycombs.Grid memory grid;
 
         // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
-        grid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
+        grid.rows = Utilities.random(honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows;
-        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
+        grid = addGridPositioning(honeycomb.baseHexagon.hexagonType, grid); // appends to grid object
 
         // Create grid based on hexagon base type.
-        if (data.baseHexagonType == HEXAGON_TYPE.POINTY) {
+        if (honeycomb.baseHexagonType == HEXAGON_TYPE.POINTY) {
             grid.totalGradients = grid.rows;
 
             for (uint8 i; i < grid.rows; ) {
@@ -582,7 +397,7 @@ library HoneycombsArt {
                     ++i;
                 }
             }
-        } else if (data.baseHexagonType == HEXAGON_TYPE.FLAT) {
+        } else if (honeycomb.baseHexagonType == HEXAGON_TYPE.FLAT) {
             uint8 flatTopRows = grid.rows * 2 - 1;
             grid.totalGradients = flatTopRows;
 
@@ -619,16 +434,16 @@ library HoneycombsArt {
     }
 
     /// @dev Get the honeycomb grid for a diamond shape.
-    /// @param data The data object containing rendering settings.
-    function getDiamondGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
-        Grid memory grid;
+    /// @param honeycomb The honeycomb data used for rendering.
+    function getDiamondGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
+        IHoneycombs.Grid memory grid;
 
         // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
-        grid.rows = Utilities.random(data.honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
+        grid.rows = Utilities.random(honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3;
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows / 2 + 1;
-        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
+        grid = addGridPositioning(honeycomb.baseHexagon.hexagonType, grid); // appends to grid object
 
         // Create diamond grid. Both flat top and pointy top result in the same grid, so no need to check hexagon type.
         for (uint8 i; i < grid.rows; ) {
@@ -655,19 +470,19 @@ library HoneycombsArt {
     }
 
     /// @dev Get the honeycomb grid for a triangle shape.
-    /// @param data The data object containing rendering settings.
-    function getTriangleGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
-        Grid memory grid;
+    /// @param honeycomb The honeycomb data used for rendering.
+    function getTriangleGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
+        IHoneycombs.Grid memory grid;
 
         // Get random rows from 2 to MAX_HEXAGONS_PER_ROW.
-        grid.rows = Utilities.random(data.honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW - 1) + 2;
+        grid.rows = Utilities.random(honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW - 1) + 2;
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows;
-        grid = addGridPositioning(data.baseHexagon.hexagonType, grid); // appends to grid object
+        grid = addGridPositioning(honeycomb.baseHexagon.hexagonType, grid); // appends to grid object
 
         // Create grid based on hexagon base type.
-        if (data.baseHexagonType == HEXAGON_TYPE.POINTY) {
+        if (honeycomb.baseHexagonType == HEXAGON_TYPE.POINTY) {
             grid.totalGradients = grid.rows;
 
             // Iterate through rows - will only be north/south facing (design).
@@ -685,7 +500,7 @@ library HoneycombsArt {
                     ++i;
                 }
             }
-        } else if (data.baseHexagonType == HEXAGON_TYPE.FLAT) {
+        } else if (honeycomb.baseHexagonType == HEXAGON_TYPE.FLAT) {
             uint8 flatTopRows = grid.rows * 2 - 1;
             grid.totalGradients = flatTopRows;
 
@@ -721,21 +536,21 @@ library HoneycombsArt {
 
     /// @dev Generate the overall honeycomb grid, including the final svg.
     /// @dev Using double coordinates: https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
-    /// @param data The data object containing rendering settings.
-    function generateGrid(HoneycombRenderData memory data) public pure returns (Grid memory) {
+    /// @param honeycomb The honeycomb data used for rendering.
+    function generateGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
         // Carry through original grid data.
-        Grid memory grid = data.grid;
+        IHoneycombs.Grid memory grid = honeycomb.grid;
 
         // Get grid data based on shape, which includes the hexagonsSvg and totalGradients required.
-        Grid memory gridData; // partial and temporary grid object used to store supportive variables
+        IHoneycombs.Grid memory gridData; // partial and temporary grid object used to store supportive variables
         if (grid == SHAPE.TRIANGLE) {
-            gridData = getTriangleGrid(data);
+            gridData = getTriangleGrid(honeycomb);
         } else if (grid == SHAPE.DIAMOND) {
-            gridData = getDiamondGrid(data);
+            gridData = getDiamondGrid(honeycomb);
         } else if (grid == SHAPE.HEXAGON) {
-            gridData = getHexagonGrid(data);
+            gridData = getHexagonGrid(honeycomb);
         } else if (grid == SHAPE.RANDOM) {
-            gridData = getRandomGrid(data);
+            gridData = getRandomGrid(honeycomb);
         }
 
         // Append data to the grid object.
@@ -743,8 +558,8 @@ library HoneycombsArt {
         grid.svg = abi.encodePacked(
             '<g transform="scale(1) rotate(', 
                     Utilities.uint2str(grid.rotation) ,',', 
-                    Utilities.uint2str(data.canvas.width / 2) ,',', 
-                    Utilities.uint2str(data.canvas.height / 2), '">',
+                    Utilities.uint2str(honeycomb.canvas.width / 2) ,',', 
+                    Utilities.uint2str(honeycomb.canvas.height / 2), '">',
                 gridData.hexagonsSvg,
             '</g>'
         );
@@ -753,134 +568,90 @@ library HoneycombsArt {
         return grid;
     }
 
-    /// @dev Generate relevant rendering data for the honeycomb.
-    /// @param honeycomb Our current honeycomb loaded from storage.
+    /// @dev Generate relevant rendering data by loading honeycomb from storage and filling its attribute settings.
     /// @param honeycombs The DB containing all honeycombs.
+    /// @param tokenId The tokenId of the honeycomb to render.
     function generateHoneycombRenderData(
-        IHoneycombs.Honeycomb memory honeycomb,
-        IHoneycombs.Honeycombs storage honeycombs
-    ) public view returns (HoneycombRenderData memory data) {
-        // Carry through base settings.
-        data.honeycomb = honeycomb;
+        IHoneycombs.Honeycombs storage honeycombs,
+        uint256 tokenId
+    ) public view returns (IHoneycombs.Honeycomb memory honeycomb) {
+        IHoneycombs.StoredHoneycomb memory stored = honeycombs.all[tokenId];
+        honeycomb.stored = stored;
+
+        // Set up the source of randomness + seed for this Honeycomb.
+        uint128 randomness = honeycombs.epochs[stored.epoch].randomness;
+        honeycomb.seed = (uint256(keccak256(abi.encodePacked(randomness, stored.seed))) % type(uint128).max);
+        honeycomb.isRevealed = randomness > 0;
 
         // Set the canvas properties.
-        data.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
-        data.canvas.width = CANVAS_WIDTH;
-        data.canvas.height = CANVAS_HEIGHT;
+        honeycomb.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
+        honeycomb.canvas.width = CANVAS_WIDTH;
+        honeycomb.canvas.height = CANVAS_HEIGHT;
 
         // Get the base hexagon properties.
-        data.baseHexagon.hexagonType = Utilities.random(honeycomb.seed, "hexagonType", 2) == 0
+        honeycomb.baseHexagon.hexagonType = Utilities.random(honeycomb.seed, "hexagonType", 2) == 0
             ? HEXAGON_TYPE.FLAT
             : HEXAGON_TYPE.POINTY;
-        data.baseHexagon.path = getHexagonPath(data.baseHexagon.hexagonType);
-        data.baseHexagon.strokeWidth =
+        honeycomb.baseHexagon.path = getHexagonPath(honeycomb.baseHexagon.hexagonType);
+        honeycomb.baseHexagon.strokeWidth =
             Utilities.random(honeycomb.seed, "strokeWidth", MAX_HEXAGON_STROKE_WIDTH) +
             MIN_HEXAGON_STROKE_WIDTH;
-        data.baseHexagon.fillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0 ? "white" : "black";
+        honeycomb.baseHexagon.fillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0
+            ? "white"
+            : "black";
 
         /**
          * Get the grid properties, including the actual svg.
          * Note: Random shapes must only have pointy top hexagon bases (artist design choice).
          * Note: Triangles have unique rotation options (artist design choice).
          */
-        data.grid.shape = getShape([Utilities.random(honeycomb.seed, "gridShape", 4)]);
-        if (data.grid.shape == SHAPE.RANDOM) data.baseHexagon.hexagonType = HEXAGON_TYPE.POINTY;
+        honeycomb.grid.shape = getShape([Utilities.random(honeycomb.seed, "gridShape", 4)]);
+        if (honeycomb.grid.shape == SHAPE.RANDOM) honeycomb.baseHexagon.hexagonType = HEXAGON_TYPE.POINTY;
 
-        data.grid.rotation = data.grid.shape == SHAPE.TRIANGLE
+        honeycomb.grid.rotation = honeycomb.grid.shape == SHAPE.TRIANGLE
             ? Utilities.random(honeycomb.seed, "rotation", 4) * 90
             : Utilities.random(honeycomb.seed, "rotation", 12) * 30;
 
-        data.grid = generateGrid(data);
+        honeycomb.grid = generateGrid(honeycomb);
 
         // Get the gradients properties, including the actual svg.
-        data.gradients.chrome = getChrome([Utilities.random(honeycomb.seed, "chrome", 7)]);
-        data.gradients.duration = getDuration([Utilities.random(honeycomb.seed, "duration", 4)]);
-        data.gradients.direction = Utilities.random(honeycomb.seed, "direction", 2);
-        data.gradients.svg = generateGradientsSvg(data);
+        honeycomb.gradients.chrome = getChrome([Utilities.random(honeycomb.seed, "chrome", 7)]);
+        honeycomb.gradients.duration = getDuration([Utilities.random(honeycomb.seed, "duration", 4)]);
+        honeycomb.gradients.direction = Utilities.random(honeycomb.seed, "direction", 2);
+        honeycomb.gradients.svg = generateGradientsSvg(honeycomb);
     }
 
-    /// @dev Generate the complete SVG code for a given Honeycomb.
-    /// @param honeycomb The honeycomb to render.
+    /// @dev Generate the complete SVG and its associated data for a honeycomb.
     /// @param honeycombs The DB containing all honeycombs.
-    function generateSVG(
-        IHoneycombs.Honeycomb memory honeycomb,
-        IHoneycombs.Honeycombs storage honeycombs
-    ) public view returns (bytes memory) {
-        HoneycombRenderData memory data = generateHoneycombRenderData(honeycomb, honeycombs);
+    /// @param tokenId The tokenId of the honeycomb to render.
+    function generateHoneycomb(
+        IHoneycombs.Honeycombs storage honeycombs,
+        uint256 tokenId
+    ) public view returns (IHoneycombs.Honeycomb memory) {
+        IHoneycombs.Honeycomb memory honeycomb = generateHoneycombRenderData(honeycombs, tokenId);
 
         // prettier-ignore
-        return abi.encodePacked(
-            '<svg viewBox="0 0 ', Utilities.uint2str(data.canvas.width), ' ', Utilities.uint2str(data.canvas.width), 
-                    '"fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:', 
-                    data.canvas.color, ';">',
+        honeycomb.svg = abi.encodePacked(
+            '<svg viewBox="0 0 ', Utilities.uint2str(honeycomb.canvas.width), ' ', 
+                    Utilities.uint2str(honeycomb.canvas.height), '"fill="none" xmlns="http://www.w3.org/2000/svg"', 
+                    'style="width:100%;background:', honeycomb.canvas.color, ';">',
                 '<defs>',
-                    '<path id="hexagon" fill="', data.baseHexagon.fillColor,
-                        '" stroke-width="', Utilities.uint2str(data.baseHexagon.strokeWidth),
-                        '" d="', data.baseHexagon.path ,'" />',
-                    data.gradients.svg,
+                    '<path id="hexagon" fill="', honeycomb.baseHexagon.fillColor,
+                        '" stroke-width="', Utilities.uint2str(honeycomb.baseHexagon.strokeWidth),
+                        '" d="', honeycomb.baseHexagon.path ,'" />',
+                    honeycomb.gradients.svg,
                 '</defs>',
-                '<rect width="', Utilities.uint2str(data.canvas.width),
-                    '" height="', Utilities.uint2str(data.canvas.width), '" fill="', data.canvas.color, '"/>',
-                data.grid.svg,
-                '<rect width="', Utilities.uint2str(data.canvas.width),
-                    '" height="', Utilities.uint2str(data.canvas.width), '" fill="transparent">',
-                    '<animate attributeName="width" from="', Utilities.uint2str(data.canvas.width),
+                '<rect width="', Utilities.uint2str(honeycomb.canvas.width),
+                    '" height="', Utilities.uint2str(honeycomb.canvas.width), '" fill="', honeycomb.canvas.color, '"/>',
+                honeycomb.grid.svg,
+                '<rect width="', Utilities.uint2str(honeycomb.canvas.width),
+                    '" height="', Utilities.uint2str(honeycomb.canvas.width), '" fill="transparent">',
+                    '<animate attributeName="width" from="', Utilities.uint2str(honeycomb.canvas.width),
                         '" to="0" dur="0.2s" fill="freeze" begin="click" id="animation"/>',
                 '</rect>',
             '</svg>'
         );
+
+        return honeycomb;
     }
-}
-
-/// @dev All data relevant for rendering.
-struct HoneycombRenderData {
-    IHoneycombs.Honeycomb honeycomb;
-    Canvas canvas;
-    BaseHexagon baseHexagon;
-    Grid grid;
-    Gradients gradient;
-}
-
-/// @dev All data relevant to the canvas.
-struct Canvas {
-    string color; // background color of canvas
-    uint16 width; // width of canvas
-    uint16 height; // height of canvas
-}
-
-/// @dev All data relevant to the base hexagon.
-struct BaseHexagon {
-    string path; // path of base hexagon
-    string fillColor; // fill color of base hexagon
-    uint8 strokeWidth; // stroke width size in user units (pixels)
-    HEXAGON_TYPE hexagonType; // type of base hexagon, i.e. flat or pointy
-}
-
-/// @dev All data relevant for the grid.
-struct Grid {
-    bytes hexagonsSvg; // final svg for all hexagons
-    bytes svg; // final svg for the grid
-    uint16 gridX; // x coordinate of the grid
-    uint16 gridY; // y coordinate of the grid
-    uint16 rowDistance; // distance between rows in user units (pixels)
-    uint16 columnDistance; // distance between columns in user units (pixels)
-    uint16 rotation; // rotation of entire shape in degrees
-    uint8 shape; // shape of the grid, i.e. triangle, diamond, hexagon, random
-    uint8 totalGradients; // number of gradients required based on the grid size and shape
-    uint8 rows; // number of rows in the grid
-    uint8 longestRowCount; // largest row size in the grid for centering purposes
-}
-
-/// @dev All data relevant for the gradients.
-struct Gradients {
-    bytes svg; // final svg for the gradients
-    uint16 duration; // duration of animation in seconds
-    uint8 direction; // direction of animation, i.e. forward or backward
-    uint8 chrome; // max number of colors in all the gradients, aka chrome
-}
-
-/// @dev All data relevant for a gradient stop.
-struct GradientStop {
-    string color; // color of the gradient stop
-    bytes animationColorValues; // color values for the animation
 }

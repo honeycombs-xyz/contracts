@@ -78,12 +78,6 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
         }
     }
 
-    /// @notice Get a specific honeycomb.
-    /// @param tokenId The token ID to fetch.
-    function getHoneycomb(uint256 tokenId) external view returns (Honeycomb memory honeycomb) {
-        return HoneycombsArt.getHoneycomb(tokenId, honeycombs);
-    }
-
     /// @notice Initializes and closes epochs.
     /// @dev Based on the commit-reveal scheme proposed by MouseDev.
     function resolveEpochIfNecessary() public {
@@ -128,19 +122,18 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
         return honeycombs.epochs[index];
     }
 
-    /// @notice Get the colors of all honeycombs in a given token.
-    /// @param tokenId The token ID to get colors for.
-    /// @dev Consider using the HoneycombsArt and EightyColors Libraries
-    ///      in combination with the getHoneycomb function to resolve this yourself.
-    function colors(uint256 tokenId) external view returns (string[] memory, uint256[] memory) {
-        return HoneycombsArt.colors(HoneycombsArt.getHoneycomb(tokenId, honeycombs), honeycombs);
+    /// @notice Get a specific honeycomb.
+    /// @param tokenId The token ID to fetch.
+    /// @dev Consider using the HoneycombsArt Library directly.
+    function getHoneycomb(uint256 tokenId) external view returns (Honeycomb memory honeycomb) {
+        return HoneycombsArt.generateHoneycomb(tokenId, honeycombs);
     }
 
     /// @notice Render the SVG for a given token.
     /// @param tokenId The token to render.
     /// @dev Consider using the HoneycombsArt Library directly.
     function svg(uint256 tokenId) external view returns (string memory) {
-        return string(HoneycombsArt.generateSVG(HoneycombsArt.getHoneycomb(tokenId, honeycombs), honeycombs));
+        return string(HoneycombsArt.generateHoneycomb(honeycombs, tokenId).svg);
     }
 
     /// @notice Get the metadata for a given token.

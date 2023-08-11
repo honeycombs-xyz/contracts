@@ -3,9 +3,6 @@ pragma solidity ^0.8.17;
 
 interface IHoneycombs {
     struct StoredHoneycomb {
-        uint16[6] composites; // The tokenIds that were composited into this one
-        uint8[5] colorBands; // The length of the used color band in percent
-        uint8[5] gradients; // Gradient settings for each generation
         uint32 epoch; // Each honeycomb is revealed in an epoch
         uint16 seed; // A unique identifier to enable swapping
         uint24 day; // The days since token was created
@@ -15,21 +12,11 @@ interface IHoneycombs {
         StoredHoneycomb stored; // We carry over the honeycomb from storage
         bool isRevealed; // Whether the honeycomb is revealed
         uint256 seed; // The instantiated seed for pseudo-randomisation
-        uint8 honeycombsCount; // How many honeycombs this token has
-        bool hasManyHoneycombs; // Whether the honeycomb has many honeycombs
-        uint16 composite; // The parent tokenId that was composited into this one
-        bool isRoot; // Whether it has no parents (80 honeycombs)
-        uint8 colorBand; // 100%, 50%, 25%, 12.5%, 6.25%, 5%, 1.25%
-        uint8 gradient; // Linearly through the colorBand [1, 2, 3]
-        uint8 direction; // Animation direction
-        uint8 speed; // Animation speed
-    }
-
-    struct Epoch {
-        uint128 randomness; // The source of randomness for tokens from this epoch
-        uint64 revealBlock; // The block at which this epoch was / is revealed
-        bool committed; // Whether the epoch has been instantiated
-        bool revealed; // Whether the epoch has been revealed
+        bytes svg; // final svg for the honeycomb
+        Canvas canvas; // all data relevant to the canvas
+        BaseHexagon baseHexagon; // all data relevant to the base hexagon
+        Grid grid; // all data relevant to the grid
+        Gradients gradient; // all data relevant to the gradients
     }
 
     struct Honeycombs {
@@ -40,6 +27,47 @@ interface IHoneycombs {
         uint32 day0; // Marks the start of this journey
         mapping(uint256 => Epoch) epochs; // All epochs
         uint256 epoch; // The current epoch index
+    }
+
+    struct Canvas {
+        string color; // background color of canvas
+        uint16 width; // width of canvas
+        uint16 height; // height of canvas
+    }
+
+    struct BaseHexagon {
+        string path; // path of base hexagon
+        string fillColor; // fill color of base hexagon
+        uint8 strokeWidth; // stroke width size in user units (pixels)
+        uint8 hexagonType; // type of base hexagon, i.e. flat or pointy
+    }
+
+    struct Grid {
+        bytes hexagonsSvg; // final svg for all hexagons
+        bytes svg; // final svg for the grid
+        uint16 gridX; // x coordinate of the grid
+        uint16 gridY; // y coordinate of the grid
+        uint16 rowDistance; // distance between rows in user units (pixels)
+        uint16 columnDistance; // distance between columns in user units (pixels)
+        uint16 rotation; // rotation of entire shape in degrees
+        uint8 shape; // shape of the grid, i.e. triangle, diamond, hexagon, random
+        uint8 totalGradients; // number of gradients required based on the grid size and shape
+        uint8 rows; // number of rows in the grid
+        uint8 longestRowCount; // largest row size in the grid for centering purposes
+    }
+
+    struct Gradients {
+        bytes svg; // final svg for the gradients
+        uint16 duration; // duration of animation in seconds
+        uint8 direction; // direction of animation, i.e. forward or backward
+        uint8 chrome; // max number of colors in all the gradients, aka chrome
+    }
+
+    struct Epoch {
+        uint128 randomness; // The source of randomness for tokens from this epoch
+        uint64 revealBlock; // The block at which this epoch was / is revealed
+        bool committed; // Whether the epoch has been instantiated
+        bool revealed; // Whether the epoch has been revealed
     }
 
     event NewEpoch(uint256 indexed epoch, uint64 indexed revealBlock);
