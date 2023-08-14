@@ -41,22 +41,20 @@ library HoneycombsMetadata {
     /// @dev Render the JSON atributes for a given Honeycombs token.
     /// @param honeycomb The honeycomb to render.
     function attributes(IHoneycombs.Honeycomb memory honeycomb) public pure returns (bytes memory) {
-        bool showAttributes = honeycomb.isRevealed;
-
         return
             abi.encodePacked(
-                showAttributes ? trait("Canvas Color", honeycomb.canvas.color, ",") : "",
-                showAttributes
+                honeycomb.isRevealed ? trait("Canvas Color", honeycomb.canvas.color, ",") : "",
+                honeycomb.isRevealed
                     ? trait("Base Hexagon", honeycomb.baseHexagon.hexagonType == 0 ? "Flat Top" : "Pointy Top", ",")
                     : "",
-                showAttributes ? trait("Base Hexagon Fill Color", honeycomb.baseHexagon.fillColor, ",") : "",
-                showAttributes ? trait("Stroke Width", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth), ",") : "",
-                showAttributes ? trait("Shape", shapes(honeycomb.grid.shape), ",") : "",
-                showAttributes ? trait("Rows", Utilities.uint2str(honeycomb.grid.rows), ",") : "",
-                showAttributes ? trait("Rotation", Utilities.uint2str(honeycomb.grid.rotation), ",") : "",
-                showAttributes ? trait("Chrome", chromes(honeycomb.gradients.chrome), ",") : "",
-                showAttributes ? trait("Duration", durations(honeycomb.gradients.duration), ",") : "",
-                showAttributes
+                honeycomb.isRevealed ? trait("Base Hexagon Fill Color", honeycomb.baseHexagon.fillColor, ",") : "",
+                honeycomb.isRevealed ? trait("Stroke Width", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth), ",") : "",
+                honeycomb.isRevealed ? trait("Shape", shapes(honeycomb.grid.shape), ",") : "",
+                honeycomb.isRevealed ? trait("Rows", Utilities.uint2str(honeycomb.grid.rows), ",") : "",
+                honeycomb.isRevealed ? trait("Rotation", Utilities.uint2str(honeycomb.grid.rotation), ",") : "",
+                honeycomb.isRevealed ? trait("Chrome", chromes(honeycomb.gradients.chrome), ",") : "",
+                honeycomb.isRevealed ? trait("Duration", durations(honeycomb.gradients.duration), ",") : "",
+                honeycomb.isRevealed
                     ? trait("Direction", honeycomb.gradients.direction == 0 ? "Forward" : "Reverse", ",")
                     : "",
                 honeycomb.isRevealed == false ? trait("Revealed", "No", ",") : "",
