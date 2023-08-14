@@ -126,7 +126,7 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     /// @param tokenId The token ID to fetch.
     /// @dev Consider using the HoneycombsArt Library directly.
     function getHoneycomb(uint256 tokenId) external view returns (Honeycomb memory honeycomb) {
-        return HoneycombsArt.generateHoneycomb(tokenId, honeycombs);
+        return HoneycombsArt.generateHoneycomb(honeycombs, tokenId);
     }
 
     /// @notice Render the SVG for a given token.

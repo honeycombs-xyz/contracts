@@ -8,11 +8,6 @@ library Utilities {
     }
 
     /// @dev Zero-index based salted pseudorandom number based on two inputs and max bound
-    function random(uint256 input, string memory salt, uint256 _max) internal pure returns (uint256) {
-        return (uint256(keccak256(abi.encodePacked(input, salt))) % _max);
-    }
-
-    /// @dev Zero-index based salted pseudorandom number based on two inputs and max bound
     function random(uint256 input, bytes memory salt, uint256 _max) internal pure returns (uint256) {
         return (uint256(keccak256(abi.encodePacked(input, salt))) % _max);
     }

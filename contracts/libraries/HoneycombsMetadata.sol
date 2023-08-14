@@ -16,7 +16,7 @@ library HoneycombsMetadata {
     /// @param tokenId The id of the token to render.
     /// @param honeycombs The DB containing all honeycombs.
     function tokenURI(uint256 tokenId, IHoneycombs.Honeycombs storage honeycombs) public view returns (string memory) {
-        bytes memory data = HoneycombsArt.generateHoneycomb(honeycombs, tokenId);
+        IHoneycombs.Honeycomb memory honeycomb = HoneycombsArt.generateHoneycomb(honeycombs, tokenId);
 
         // prettier-ignore
         bytes memory metadata = abi.encodePacked(
@@ -25,13 +25,13 @@ library HoneycombsMetadata {
                 '"description": "Lokah Samastah Sukhino Bhavantu",',
                 '"image": ',
                     '"data:image/svg+xml;base64,',
-                    Base64.encode(data.svg),
+                    Base64.encode(honeycomb.svg),
                     '",',
                 '"animation_url": ',
                     '"data:text/html;base64,',
-                    Base64.encode(generateHTML(tokenId, data.svg)),
+                    Base64.encode(generateHTML(tokenId, honeycomb.svg)),
                     '",',
-                '"attributes": [', attributes(data), ']',
+                '"attributes": [', attributes(honeycomb), ']',
             '}'
         );
 
@@ -41,22 +41,24 @@ library HoneycombsMetadata {
     /// @dev Render the JSON atributes for a given Honeycombs token.
     /// @param honeycomb The honeycomb to render.
     function attributes(IHoneycombs.Honeycomb memory honeycomb) public pure returns (bytes memory) {
-        bool showVisualAttributes = honeycomb.isRevealed && honeycomb.hasManyHoneycombs;
+        bool showAttributes = honeycomb.isRevealed;
 
         return
             abi.encodePacked(
-                showVisualAttributes ? trait("Canvas Color", honeycomb.canvas.color, ",") : "",
-                showVisualAttributes
+                showAttributes ? trait("Canvas Color", honeycomb.canvas.color, ",") : "",
+                showAttributes
                     ? trait("Base Hexagon", honeycomb.baseHexagon.hexagonType == 0 ? "Flat Top" : "Pointy Top", ",")
                     : "",
-                showVisualAttributes ? trait("Base Hexagon Fill Color", honeycomb.baseHexagon.fillColor, ",") : "",
-                showVisualAttributes ? trait("Stroke Width", honeycomb.baseHexagon.strokeWidth, ",") : "",
-                showVisualAttributes ? trait("Shape", shapes(honeycomb.grid.shape), ",") : "",
-                showVisualAttributes ? trait("Rows", honeycomb.grid.rows, ",") : "",
-                showVisualAttributes ? trait("Rotation", honeycomb.grid.rotation, ",") : "",
-                showVisualAttributes ? trait("Chrome", chromes(honeycomb.gradients.chrome), ",") : "",
-                showVisualAttributes ? trait("Duration", durations(honeycomb.duration), ",") : "",
-                showVisualAttributes ? trait("Direction", honeycomb.direction == 0 ? "Forward" : "Reverse", ",") : "",
+                showAttributes ? trait("Base Hexagon Fill Color", honeycomb.baseHexagon.fillColor, ",") : "",
+                showAttributes ? trait("Stroke Width", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth), ",") : "",
+                showAttributes ? trait("Shape", shapes(honeycomb.grid.shape), ",") : "",
+                showAttributes ? trait("Rows", Utilities.uint2str(honeycomb.grid.rows), ",") : "",
+                showAttributes ? trait("Rotation", Utilities.uint2str(honeycomb.grid.rotation), ",") : "",
+                showAttributes ? trait("Chrome", chromes(honeycomb.gradients.chrome), ",") : "",
+                showAttributes ? trait("Duration", durations(honeycomb.gradients.duration), ",") : "",
+                showAttributes
+                    ? trait("Direction", honeycomb.gradients.direction == 0 ? "Forward" : "Reverse", ",")
+                    : "",
                 honeycomb.isRevealed == false ? trait("Revealed", "No", ",") : "",
                 trait("Day", Utilities.uint2str(honeycomb.stored.day), "")
             );
@@ -76,7 +78,7 @@ library HoneycombsMetadata {
 
     /// @dev Get the names for different durations. Compare HoneycombsArt.getDuration().
     /// @param durationIndex The index of the duration.
-    function durations(uint8 durationIndex) public pure returns (string memory) {
+    function durations(uint16 durationIndex) public pure returns (string memory) {
         return ["Rave", "Normal", "Soothing", "Meditative"][durationIndex];
     }
 

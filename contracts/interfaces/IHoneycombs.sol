@@ -2,21 +2,22 @@
 pragma solidity ^0.8.17;
 
 interface IHoneycombs {
+    /// @dev The minimal honeycomb data stored on-chain, the rest is generated.
     struct StoredHoneycomb {
         uint32 epoch; // Each honeycomb is revealed in an epoch
-        uint16 seed; // A unique identifier to enable swapping
         uint24 day; // The days since token was created
+        uint16 seed; // A unique identifier to enable swapping (this is the token ID since it is pre-reveal)
     }
 
     struct Honeycomb {
         StoredHoneycomb stored; // We carry over the honeycomb from storage
         bool isRevealed; // Whether the honeycomb is revealed
-        uint256 seed; // The instantiated seed for pseudo-randomisation
+        uint256 seed; // The instantiated seed for pseudo-randomisation (post-reveal)
         bytes svg; // final svg for the honeycomb
         Canvas canvas; // all data relevant to the canvas
         BaseHexagon baseHexagon; // all data relevant to the base hexagon
         Grid grid; // all data relevant to the grid
-        Gradients gradient; // all data relevant to the gradients
+        Gradients gradients; // all data relevant to the gradients
     }
 
     struct Honeycombs {
