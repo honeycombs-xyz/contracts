@@ -584,8 +584,7 @@ library HoneycombsArt {
 
         // prettier-ignore
         honeycomb.svg = abi.encodePacked(
-            '<svg viewBox="0 0 ', Utilities.uint2str(honeycomb.canvas.size), ' ', 
-                    Utilities.uint2str(honeycomb.canvas.size), '"fill="none" xmlns="http://www.w3.org/2000/svg"', 
+            '<svg viewBox="0 0 810 810" "fill="none" xmlns="http://www.w3.org/2000/svg"', 
                     'style="width:100%;background:', honeycomb.canvas.color, ';">',
                 '<defs>',
                     '<path id="hexagon" fill="', honeycomb.baseHexagon.fillColor,
@@ -593,13 +592,10 @@ library HoneycombsArt {
                         '" d="', honeycomb.baseHexagon.path ,'" />',
                     honeycomb.gradients.svg,
                 '</defs>',
-                '<rect width="', Utilities.uint2str(honeycomb.canvas.size),
-                    '" height="', Utilities.uint2str(honeycomb.canvas.size), '" fill="', honeycomb.canvas.color, '"/>',
+                '<rect width="810" height="810" fill="', honeycomb.canvas.color, '"/>',
                 honeycomb.grid.svg,
-                '<rect width="', Utilities.uint2str(honeycomb.canvas.size),
-                    '" height="', Utilities.uint2str(honeycomb.canvas.size), '" fill="transparent">',
-                    '<animate attributeName="width" from="', Utilities.uint2str(honeycomb.canvas.size),
-                        '" to="0" dur="0.2s" fill="freeze" begin="click" id="animation"/>',
+                '<rect width="810" height="810" fill="transparent">',
+                    '<animate attributeName="width" from="810" to="0" dur="0.2s" fill="freeze" begin="click" id="animation"/>',
                 '</rect>',
             '</svg>'
         );
