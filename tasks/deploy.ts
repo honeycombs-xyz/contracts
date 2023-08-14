@@ -1,8 +1,8 @@
 import { task } from 'hardhat/config'
-import { deployChecksWithLibraries } from '../helpers/deploy'
+import { deploy } from '../helpers/deploy'
 
 task('deploy', 'Deploys all contracts for testing', async (_, hre) => {
-  const { checks } = await deployChecksWithLibraries(hre.ethers)
+  const { honeycombs } = await deploy(hre.ethers)
 
-  console.log(`Successfully deployed Checks at ${checks.address}`)
+  console.log(`Successfully deployed Honeycombs at ${honeycombs.address}`)
 })

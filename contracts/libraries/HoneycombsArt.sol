@@ -7,18 +7,15 @@ import "./Utilities.sol";
 
 /**
     TODO
-    - [] Verify base stroke width should be 8 as constant or based on hexagon size
-    - [] Verify canvas variables should be literals or vars
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
     - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid()
     
     - [] Verify +4/+2 for animation color makes sense 
     - [] Verify the animation count is 30 total values, 15 diff colors
+    - [] Verify base stroke width should be 8 as constant or based on hexagon size
     - [] Add logic for selecting initial primary colors of the gradients that isn't purely random, loosely based on the color palette
-    
-    - [] Add logic for isRevealed for commit and reveal scheme
     - [] Add logic for probabilities of some random variables
-    - [!!] Ensure code compiles
+    - [] Add logic for isRevealed for commit and reveal scheme
  */
 
 /**
@@ -58,14 +55,15 @@ library HoneycombsArt {
     function getLinearGradientSvg(GradientData memory data) public pure returns (bytes memory) {
         // prettier-ignore
         bytes memory svg = abi.encodePacked(
-            '<linearGradient id="gradient', data.gradientId, '" x1="0%" x2="0%" y1="', data.y1, '%" y2="', data.y2, '%">',
+            '<linearGradient id="gradient', data.gradientId, '" x1="0%" x2="0%" y1="', data.y1, 
+                    '%" y2="', data.y2, '%">',
                 '<stop stop-color="', data.stop1.color, '">',
-                    '<animate attributeName="stop-color" values="', data.stop1.animationColorValues, '" dur="', data.duration,
-                        's" begin="animation.begin" repeatCount="indefinite" />',
+                    '<animate attributeName="stop-color" values="', data.stop1.animationColorValues, '" dur="', 
+                        data.duration, 's" begin="animation.begin" repeatCount="indefinite" />',
                 '</stop>',
                 '<stop offset="0.', data.offset, '" stop-color="', data.stop2.color, '">',
-                    '<animate attributeName="stop-color" values="', data.stop2.animationColorValues, '" dur="', data.duration,
-                        's" begin="animation.begin" repeatCount="indefinite" />',
+                    '<animate attributeName="stop-color" values="', data.stop2.animationColorValues, '" dur="', 
+                        data.duration, 's" begin="animation.begin" repeatCount="indefinite" />',
                 '</stop>',
             '</linearGradient>'
         );
@@ -584,6 +582,7 @@ library HoneycombsArt {
 
         // prettier-ignore
         honeycomb.svg = abi.encodePacked(
+            // Note: Use 810 as hardcoded size to avoid stack too deep error.
             '<svg viewBox="0 0 810 810" "fill="none" xmlns="http://www.w3.org/2000/svg"', 
                     'style="width:100%;background:', honeycomb.canvas.color, ';">',
                 '<defs>',
@@ -595,7 +594,8 @@ library HoneycombsArt {
                 '<rect width="810" height="810" fill="', honeycomb.canvas.color, '"/>',
                 honeycomb.grid.svg,
                 '<rect width="810" height="810" fill="transparent">',
-                    '<animate attributeName="width" from="810" to="0" dur="0.2s" fill="freeze" begin="click" id="animation"/>',
+                    '<animate attributeName="width" from="810" to="0" dur="0.2s" fill="freeze" ',
+                        'begin="click" id="animation"/>',
                 '</rect>',
             '</svg>'
         );

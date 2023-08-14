@@ -1,47 +1,46 @@
-export const deployChecksWithLibraries = async (ethers, editionAddress = process.env.EDITION_ADDRESS) => {
+export const deploy = async (ethers: any) => {
   // const Utilities = await ethers.getContractFactory('Utilities')
   // const utils = await Utilities.deploy()
   // await utils.deployed()
   // console.log(`     Deployed Utilities at ${utils.address}`)
 
-  const EightyColors = await ethers.getContractFactory('EightyColors')
-  const eightyColors = await EightyColors.deploy()
-  await eightyColors.deployed()
-  console.log(`     Deployed EightyColors at ${eightyColors.address}`)
+  const Colors = await ethers.getContractFactory('Colors')
+  const colors = await Colors.deploy()
+  await colors.deployed()
+  console.log(`     Deployed Colors at ${colors.address}`)
 
-  const ChecksArt = await ethers.getContractFactory('ChecksArt', {
+  const HoneycombsArt = await ethers.getContractFactory('HoneycombsArt', {
     libraries: {
       // Utilities: utils.address,
-      EightyColors: eightyColors.address,
+      Colors: colors.address,
     }
   })
-  const checksArt = await ChecksArt.deploy()
-  await checksArt.deployed()
-  console.log(`     Deployed ChecksArt at ${checksArt.address}`)
+  const honeycombArt = await HoneycombsArt.deploy()
+  await honeycombArt.deployed()
+  console.log(`     Deployed HoneycombsArt at ${honeycombArt.address}`)
 
-  const ChecksMetadata = await ethers.getContractFactory('ChecksMetadata', {
+  const HoneycombsMetadata = await ethers.getContractFactory('HoneycombsMetadata', {
     libraries: {
       // Utilities: utils.address,
-      ChecksArt: checksArt.address,
+      HoneycombsArt: honeycombArt.address,
     }
   })
-  const checksMetadata = await ChecksMetadata.deploy()
-  await checksMetadata.deployed()
-  console.log(`     Deployed ChecksMetadata at ${checksMetadata.address}`)
+  const honeycombsMetadata = await HoneycombsMetadata.deploy()
+  await honeycombsMetadata.deployed()
+  console.log(`     Deployed HoneycombsMetadata at ${honeycombsMetadata.address}`)
 
-  const ChecksOriginals = await ethers.getContractFactory('Checks', {
+  const Honeycombs = await ethers.getContractFactory('Honeycombs', {
     libraries: {
       // Utilities: utils.address,
-      ChecksArt: checksArt.address,
-      ChecksMetadata: checksMetadata.address,
+      HoneycombsArt: honeycombArt.address,
+      HoneycombsMetadata: honeycombsMetadata.address,
     }
   })
-  // const checks = await ChecksOriginals.deploy(editionAddress)
-  const checks = await ChecksOriginals.deploy()
-  await checks.deployed()
-  console.log(`     Deployed ChecksOriginals at ${checks.address}`)
+  const honeycombs = await Honeycombs.deploy()
+  await honeycombs.deployed()
+  console.log(`     Deployed Honeycombs at ${honeycombs.address}`)
 
   return {
-    checks
+    honeycombs
   }
 }
