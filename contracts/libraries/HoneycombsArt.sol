@@ -488,35 +488,34 @@ library HoneycombsArt {
     /// @dev Generate the overall honeycomb grid, including the final svg.
     /// @dev Using double coordinates: https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
     /// @param honeycomb The honeycomb data used for rendering.
-    function generateGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
-        // Carry through original grid data.
-        IHoneycombs.Grid memory grid = honeycomb.grid;
+    /// @return (bytes, uint8, uint8) The svg, totalGradients, and rows.
+    function generateGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (bytes memory, uint8, uint8) {
+        // Partial grid object used to store supportive variables
+        IHoneycombs.Grid memory gridData;
 
-        // Get grid data based on shape, which includes the hexagonsSvg and totalGradients required.
-        IHoneycombs.Grid memory gridData; // partial and temporary grid object used to store supportive variables
-        if (grid.shape == uint8(SHAPE.TRIANGLE)) {
+        // Get grid data based on shape.
+        if (honeycomb.grid.shape == uint8(SHAPE.TRIANGLE)) {
             gridData = getTriangleGrid(honeycomb);
-        } else if (grid.shape == uint8(SHAPE.DIAMOND)) {
+        } else if (honeycomb.grid.shape == uint8(SHAPE.DIAMOND)) {
             gridData = getDiamondGrid(honeycomb);
-        } else if (grid.shape == uint8(SHAPE.HEXAGON)) {
+        } else if (honeycomb.grid.shape == uint8(SHAPE.HEXAGON)) {
             gridData = getHexagonGrid(honeycomb);
-        } else if (grid.shape == uint8(SHAPE.RANDOM)) {
+        } else if (honeycomb.grid.shape == uint8(SHAPE.RANDOM)) {
             gridData = getRandomGrid(honeycomb);
         }
 
-        // Append data to the grid object.
+        // Generate grid svg.
         // prettier-ignore
-        grid.svg = abi.encodePacked(
+        bytes memory svg = abi.encodePacked(
             '<g transform="scale(1) rotate(', 
-                    Utilities.uint2str(grid.rotation) ,',', 
+                    Utilities.uint2str(honeycomb.grid.rotation) ,',', 
                     Utilities.uint2str(honeycomb.canvas.size / 2) ,',', 
                     Utilities.uint2str(honeycomb.canvas.size / 2), '">',
                 gridData.hexagonsSvg,
             '</g>'
         );
-        grid.totalGradients = gridData.totalGradients;
 
-        return grid;
+        return (svg, gridData.totalGradients, gridData.rows);
     }
 
     /// @dev Generate relevant rendering data by loading honeycomb from storage and filling its attribute settings.
@@ -562,7 +561,7 @@ library HoneycombsArt {
             ? uint16(Utilities.random(honeycomb.seed, "rotation", 4) * 90)
             : uint16(Utilities.random(honeycomb.seed, "rotation", 12) * 30);
 
-        honeycomb.grid = generateGrid(honeycomb);
+        (honeycomb.grid.svg, honeycomb.grid.totalGradients, honeycomb.grid.rows) = generateGrid(honeycomb);
 
         // Get the gradients properties, including the actual svg.
         honeycomb.gradients.chrome = getChrome(uint8(Utilities.random(honeycomb.seed, "chrome", 7)));
