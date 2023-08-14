@@ -32,8 +32,9 @@ interface IHoneycombs {
 
     struct Canvas {
         string color; // background color of canvas
-        uint16 width; // width of canvas
-        uint16 height; // height of canvas
+        uint16 size; // size or length of canvas in user units (pixels)
+        uint16 hexagonSize; // size or length of hexagon in user units (pixels)
+        uint16 maxHexagonsPerLine; // max number of hexagons per line
     }
 
     struct BaseHexagon {

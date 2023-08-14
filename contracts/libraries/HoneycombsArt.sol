@@ -8,8 +8,7 @@ import "./Utilities.sol";
 /**
     TODO
     - [] Verify base stroke width should be 8 as constant or based on hexagon size
-    - [] Verify max hexagons per row and column should be 9 as constant or formulas
-    - [] Verify CANVAS_WIDTH, etc should be global (in renderingData) or constant or as is?
+    - [] Verify canvas variables should be literals or vars
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
     - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid()
     
@@ -29,25 +28,6 @@ import "./Utilities.sol";
 library HoneycombsArt {
     enum HEXAGON_TYPE { FLAT, POINTY } // prettier-ignore
     enum SHAPE { TRIANGLE, DIAMOND, HEXAGON, RANDOM } // prettier-ignore
-
-    /// @dev The width and height of the canvas.
-    uint16 public constant CANVAS_WIDTH = 810;
-    uint16 public constant CANVAS_HEIGHT = 810;
-
-    /// @dev The width and height of the hexagon.
-    uint16 public constant HEXAGON_WIDTH = 72;
-    uint16 public constant HEXAGON_HEIGHT = 72;
-
-    /// @dev The base stroke width of the hexagon.
-    uint8 public constant HEXAGON_STROKE_WIDTH = 8;
-
-    /// @dev The maximum number of hexagons in a row and column.
-    uint16 public constant MAX_HEXAGONS_PER_ROW = ((CANVAS_WIDTH - 90) / HEXAGON_WIDTH) - 1;
-    uint16 public constant MAX_HEXAGONS_PER_COLUMN = ((CANVAS_WIDTH - 90) / HEXAGON_WIDTH) - 1;
-
-    /// @dev The range of stroke widths for the hexagon.
-    uint8 public constant MIN_HEXAGON_STROKE_WIDTH = 3;
-    uint8 public constant MAX_HEXAGON_STROKE_WIDTH = 15;
 
     /// @dev The paths for a 72x72 px hexagon.
     function getHexagonPath(uint8 pathType) public pure returns (string memory path) {
@@ -247,32 +227,36 @@ library HoneycombsArt {
 
     /// @dev Add positioning to the grid (for centering on canvas).
     /// @dev Note this function appends attributes to grid object, so returned object has original grid + positioning.
-    /// @param grid The grid metadata.
-    /// @param baseHexagonType The base hexagon type.
-    function addGridPositioning(
-        IHoneycombs.Grid memory grid,
-        uint8 baseHexagonType
-    ) public pure returns (IHoneycombs.Grid memory) {
+    /// @param honeycomb The honeycomb data used for rendering.
+    function addGridPositioning(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
+        // The base stroke width of the hexagon.
+        uint8 HEXAGON_STROKE_WIDTH = 8;
+
         // Compute grid properties.
-        grid.rowDistance = HEXAGON_WIDTH - ((HEXAGON_WIDTH / 4) - ((3 * HEXAGON_STROKE_WIDTH) / 4));
-        grid.columnDistance = HEXAGON_WIDTH / 2;
-        uint16 gridWidth = grid.longestRowCount * HEXAGON_WIDTH + HEXAGON_STROKE_WIDTH;
-        uint16 gridHeight = grid.rows * HEXAGON_HEIGHT + HEXAGON_STROKE_WIDTH;
+        honeycomb.grid.rowDistance =
+            honeycomb.canvas.hexagonSize -
+            ((honeycomb.canvas.hexagonSize / 4) - ((3 * HEXAGON_STROKE_WIDTH) / 4));
+        honeycomb.grid.columnDistance = honeycomb.canvas.hexagonSize / 2;
+        uint16 gridWidth = honeycomb.grid.longestRowCount * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
+        uint16 gridHeight = honeycomb.grid.rows * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
 
         /**
          * Swap variables if it is a flat top hexagon (this math assumes pointy top as default). Rotating a flat top
          * hexagon 90 degrees clockwise results in a pointy top hexagon. This effectively swaps the x and y axis.
          */
-        if (baseHexagonType == uint8(HEXAGON_TYPE.FLAT)) {
-            (grid.rowDistance, grid.columnDistance) = Utilities.swap(grid.rowDistance, grid.columnDistance);
+        if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.FLAT)) {
+            (honeycomb.grid.rowDistance, honeycomb.grid.columnDistance) = Utilities.swap(
+                honeycomb.grid.rowDistance,
+                honeycomb.grid.columnDistance
+            );
             (gridWidth, gridHeight) = Utilities.swap(gridWidth, gridHeight);
         }
 
         // Compute grid positioning.
-        grid.gridX = (CANVAS_WIDTH - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
-        grid.gridY = (CANVAS_HEIGHT - gridHeight) / 2;
+        honeycomb.grid.gridX = (810 - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
+        honeycomb.grid.gridY = (810 - gridHeight) / 2;
 
-        return grid;
+        return honeycomb.grid;
     }
 
     /// @dev Get the honeycomb grid for a random shape.
@@ -280,17 +264,17 @@ library HoneycombsArt {
     function getRandomGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
         IHoneycombs.Grid memory grid;
 
-        // Get random rows from 1 to MAX_HEXAGONS_PER_ROW.
-        grid.rows = uint8(Utilities.random(honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW) + 1);
+        // Get random rows from 1 to honeycomb.canvas.maxHexagonsPerline.
+        grid.rows = uint8(Utilities.random(honeycomb.seed, "rows", honeycomb.canvas.maxHexagonsPerLine) + 1);
 
-        // Get random hexagons in each row from 1 to MAX_HEXAGONS_PER_ROW - 1.
+        // Get random hexagons in each row from 1 to honeycomb.canvas.maxHexagonsPerLine - 1.
         uint8[] memory hexagonsInRow = new uint8[](grid.rows);
         for (uint8 i; i < grid.rows; ) {
             hexagonsInRow[i] =
                 uint8(Utilities.random(
                     honeycomb.seed,
                     abi.encodePacked("hexagonsInRow", Utilities.uint2str(i)),
-                    MAX_HEXAGONS_PER_ROW - 1
+                    honeycomb.canvas.maxHexagonsPerLine - 1
                 ) + 1); // prettier-ignore
             grid.longestRowCount = Utilities.max(hexagonsInRow[i], grid.longestRowCount);
 
@@ -300,7 +284,7 @@ library HoneycombsArt {
         }
 
         // Determine positioning of entire grid, which is based on the longest row.
-        grid = addGridPositioning(grid, honeycomb.baseHexagon.hexagonType); // appends to grid object
+        grid = addGridPositioning(honeycomb); // appends to grid object
 
         int8 lastRowEvenOdd = -1; // Helps avoid overlapping hexagons: -1 = unset, 0 = even, 1 = odd
         // Create random grid. Only working with pointy tops for simplicity.
@@ -334,12 +318,14 @@ library HoneycombsArt {
     function getHexagonGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
         IHoneycombs.Grid memory grid;
 
-        // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
-        grid.rows = uint8(Utilities.random(honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3);
+        // Get random rows from 3 to honeycomb.canvas.maxHexagonsPerLine, only odd.
+        grid.rows = uint8(
+            Utilities.random(honeycomb.seed, "rows", (honeycomb.canvas.maxHexagonsPerLine / 2) - 1) * 2 + 3
+        );
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows;
-        grid = addGridPositioning(grid, honeycomb.baseHexagon.hexagonType); // appends to grid object
+        grid = addGridPositioning(honeycomb); // appends to grid object
 
         // Create grid based on hexagon base type.
         if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.POINTY)) {
@@ -403,12 +389,14 @@ library HoneycombsArt {
     function getDiamondGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
         IHoneycombs.Grid memory grid;
 
-        // Get random rows from 3 to MAX_HEXAGONS_PER_ROW, only odd.
-        grid.rows = uint8(Utilities.random(honeycomb.seed, "rows", (MAX_HEXAGONS_PER_ROW / 2) - 1) * 2 + 3);
+        // Get random rows from 3 to honeycomb.canvas.maxHexagonsPerLine, only odd.
+        grid.rows = uint8(
+            Utilities.random(honeycomb.seed, "rows", (honeycomb.canvas.maxHexagonsPerLine / 2) - 1) * 2 + 3
+        );
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows / 2 + 1;
-        grid = addGridPositioning(grid, honeycomb.baseHexagon.hexagonType); // appends to grid object
+        grid = addGridPositioning(honeycomb); // appends to grid object
 
         // Create diamond grid. Both flat top and pointy top result in the same grid, so no need to check hexagon type.
         for (uint8 i; i < grid.rows; ) {
@@ -439,12 +427,12 @@ library HoneycombsArt {
     function getTriangleGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
         IHoneycombs.Grid memory grid;
 
-        // Get random rows from 2 to MAX_HEXAGONS_PER_ROW.
-        grid.rows = uint8(Utilities.random(honeycomb.seed, "rows", MAX_HEXAGONS_PER_ROW - 1) + 2);
+        // Get random rows from 2 to honeycomb.canvas.maxHexagonsPerLine.
+        grid.rows = uint8(Utilities.random(honeycomb.seed, "rows", honeycomb.canvas.maxHexagonsPerLine - 1) + 2);
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows;
-        grid = addGridPositioning(grid, honeycomb.baseHexagon.hexagonType); // appends to grid object
+        grid = addGridPositioning(honeycomb); // appends to grid object
 
         // Create grid based on hexagon base type.
         if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.POINTY)) {
@@ -523,8 +511,8 @@ library HoneycombsArt {
         grid.svg = abi.encodePacked(
             '<g transform="scale(1) rotate(', 
                     Utilities.uint2str(grid.rotation) ,',', 
-                    Utilities.uint2str(honeycomb.canvas.width / 2) ,',', 
-                    Utilities.uint2str(honeycomb.canvas.height / 2), '">',
+                    Utilities.uint2str(honeycomb.canvas.size / 2) ,',', 
+                    Utilities.uint2str(honeycomb.canvas.size / 2), '">',
                 gridData.hexagonsSvg,
             '</g>'
         );
@@ -550,17 +538,16 @@ library HoneycombsArt {
 
         // Set the canvas properties.
         honeycomb.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
-        honeycomb.canvas.width = CANVAS_WIDTH;
-        honeycomb.canvas.height = CANVAS_HEIGHT;
+        honeycomb.canvas.size = 810;
+        honeycomb.canvas.hexagonSize = 72;
+        honeycomb.canvas.maxHexagonsPerLine = 8; // (810 (canvasSize) - 90 (padding) / 72 (hexagon size)) - 1 = 8
 
         // Get the base hexagon properties.
         honeycomb.baseHexagon.hexagonType = uint8(
             Utilities.random(honeycomb.seed, "hexagonType", 2) == 0 ? HEXAGON_TYPE.FLAT : HEXAGON_TYPE.POINTY
         );
         honeycomb.baseHexagon.path = getHexagonPath(honeycomb.baseHexagon.hexagonType);
-        honeycomb.baseHexagon.strokeWidth = uint8(
-            Utilities.random(honeycomb.seed, "strokeWidth", MAX_HEXAGON_STROKE_WIDTH) + MIN_HEXAGON_STROKE_WIDTH
-        );
+        honeycomb.baseHexagon.strokeWidth = uint8(Utilities.random(honeycomb.seed, "strokeWidth", 15) + 3);
         honeycomb.baseHexagon.fillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0
             ? "white"
             : "black";
@@ -597,8 +584,8 @@ library HoneycombsArt {
 
         // prettier-ignore
         honeycomb.svg = abi.encodePacked(
-            '<svg viewBox="0 0 ', Utilities.uint2str(honeycomb.canvas.width), ' ', 
-                    Utilities.uint2str(honeycomb.canvas.height), '"fill="none" xmlns="http://www.w3.org/2000/svg"', 
+            '<svg viewBox="0 0 ', Utilities.uint2str(honeycomb.canvas.size), ' ', 
+                    Utilities.uint2str(honeycomb.canvas.size), '"fill="none" xmlns="http://www.w3.org/2000/svg"', 
                     'style="width:100%;background:', honeycomb.canvas.color, ';">',
                 '<defs>',
                     '<path id="hexagon" fill="', honeycomb.baseHexagon.fillColor,
@@ -606,12 +593,12 @@ library HoneycombsArt {
                         '" d="', honeycomb.baseHexagon.path ,'" />',
                     honeycomb.gradients.svg,
                 '</defs>',
-                '<rect width="', Utilities.uint2str(honeycomb.canvas.width),
-                    '" height="', Utilities.uint2str(honeycomb.canvas.width), '" fill="', honeycomb.canvas.color, '"/>',
+                '<rect width="', Utilities.uint2str(honeycomb.canvas.size),
+                    '" height="', Utilities.uint2str(honeycomb.canvas.size), '" fill="', honeycomb.canvas.color, '"/>',
                 honeycomb.grid.svg,
-                '<rect width="', Utilities.uint2str(honeycomb.canvas.width),
-                    '" height="', Utilities.uint2str(honeycomb.canvas.width), '" fill="transparent">',
-                    '<animate attributeName="width" from="', Utilities.uint2str(honeycomb.canvas.width),
+                '<rect width="', Utilities.uint2str(honeycomb.canvas.size),
+                    '" height="', Utilities.uint2str(honeycomb.canvas.size), '" fill="transparent">',
+                    '<animate attributeName="width" from="', Utilities.uint2str(honeycomb.canvas.size),
                         '" to="0" dur="0.2s" fill="freeze" begin="click" id="animation"/>',
                 '</rect>',
             '</svg>'
