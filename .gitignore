@@ -2,7 +2,7 @@ node_modules/
 artifacts/
 cache/
 typechain/
-test/dist/*
+test/dist
 
 # misc
 secrets.json
