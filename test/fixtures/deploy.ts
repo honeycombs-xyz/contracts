@@ -1,7 +1,7 @@
 import { deploy } from '../../helpers/deploy'
 import { ethers } from 'hardhat';
 
-export async function deployHoneycomb() {
+export async function deployHoneycombs() {
   const { honeycombs } = await deploy(ethers)
 
   return {

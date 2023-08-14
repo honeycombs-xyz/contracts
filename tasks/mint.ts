@@ -1,47 +1,41 @@
 import { mine } from '@nomicfoundation/hardhat-network-helpers'
 import { Wallet } from 'ethers'
 import { task } from 'hardhat/config'
-import { EDITIONS, VV, VV_TOKENS } from '../helpers/constants'
+import { USER_1 } from '../helpers/constants'
 import { impersonate } from '../helpers/impersonate'
 
-task('mint-testing', 'Mint VV tokens')
-  .addParam('contract', 'The Checks Contract address')
+task('mint-testing', 'Mint single token for testing')
+  .addParam('contract', 'The Honeycombs Contract address')
   .setAction(async ({ contract }, hre) => {
-    const checks = await hre.ethers.getContractAt('Checks', contract)
-    const checkEditions = await hre.ethers.getContractAt('ZoraEdition', EDITIONS)
+    const honeycombs = await hre.ethers.getContractAt('Honeycombs', contract)
+    console.log(`Honeycombs are at ${honeycombs.address}`)
+    const user1 = await impersonate(USER_1, hre)
 
-    console.log(`Checks are at ${checks.address}`)
-
-    const vv = await impersonate(VV, hre)
-
-    // Approve
-    await checkEditions.connect(vv).setApprovalForAll(checks.address, true)
-
-    // Mint all
-    await checks.connect(vv).mint(VV_TOKENS, VV)
+    // Mint token 0
+    await honeycombs.connect(user1).mint(0, USER_1)
 
     await mine(50)
-    await (await checks.resolveEpochIfNecessary()).wait()
+    await (await honeycombs.resolveEpochIfNecessary()).wait()
 
-    console.log(`Minted all ${VV_TOKENS.length} Checks Originals`)
+    console.log(`Minted Honeycomb token #0`)
   })
 
-task('mint-live', 'Mint original checks tokens')
-  .addParam('contract', 'The Checks Contract address')
+task('mint-live', 'Mint multiple honeycombs tokens')
+  .addParam('contract', 'The Honeycombs Contract address')
   .addParam('from', 'The min token ID (inclusive)')
   .addParam('to', 'The max token ID (inclusive)')
   .setAction(async ({ contract, from, to }, hre) => {
     const signer = new Wallet(process.env.SIGNER_PK || '', hre.ethers.provider)
-    const checks = await hre.ethers.getContractAt('Checks', contract)
+    const honeycombs = await hre.ethers.getContractAt('Honeycombs', contract)
 
     const tokens = [...Array(parseInt(to) - parseInt(from) + 1).keys()].map(t => t + parseInt(from))
 
     for (let i = 0; i < tokens.length; i+=100) {
       const ids = tokens.slice(i, i + 100)
-      const tx = await checks.connect(signer).mint(ids, signer.address, {
+      const tx = await honeycombs.connect(signer).mint(ids, signer.address, {
         gasLimit: 20_000_000,
       })
-      console.log(`Minted original check ${tokens[i]} - ${tokens[i + 100 - 1]}`)
+      console.log(`Minted honeycomb ${tokens[i]} - ${tokens[i + 100 - 1]}`)
 
       if (i > 0 && i % 500 === 0) {
         console.log(`Waiting for tx batch`)
@@ -51,10 +45,9 @@ task('mint-live', 'Mint original checks tokens')
   })
 
 task('reveal', 'Reveal tokens')
-  .addParam('contract', 'Checks contract address')
+  .addParam('contract', 'Honeycombs contract address')
   .setAction(async ({ contract }, hre) => {
-    const checks = await hre.ethers.getContractAt('Checks', contract)
-    const vv = await impersonate(VV, hre)
-    // Approve
-    await checks.connect(vv).resolveEpochIfNecessary()
+    const honeycombs = await hre.ethers.getContractAt('Honeycombs', contract)
+    const user1 = await impersonate(USER_1, hre)
+    await honeycombs.connect(user1).resolveEpochIfNecessary()
   })
