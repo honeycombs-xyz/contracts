@@ -13,9 +13,9 @@ import "./Utilities.sol";
 */
 library HoneycombsMetadata {
     /// @dev Render the JSON Metadata for a given Honeycombs token.
-    /// @param tokenId The id of the token to render.
     /// @param honeycombs The DB containing all honeycombs.
-    function tokenURI(uint256 tokenId, IHoneycombs.Honeycombs storage honeycombs) public view returns (string memory) {
+    /// @param tokenId The id of the token to render.
+    function tokenURI(IHoneycombs.Honeycombs storage honeycombs, uint256 tokenId) public view returns (string memory) {
         IHoneycombs.Honeycomb memory honeycomb = HoneycombsArt.generateHoneycomb(honeycombs, tokenId);
 
         // prettier-ignore

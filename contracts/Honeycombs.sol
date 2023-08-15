@@ -10,6 +10,7 @@ import "./standards/HONEYCOMBS721.sol";
 /**
     TODO List:
     - [] Add product conditions for when not allowed to mint a new Honeycomb
+    - [] Should we add ability to mint multiple Honeycombs at once?
     - [] Verify and remove MetadataUpdate functionality - used originally for compositing / sacrificing
  */
 
@@ -142,7 +143,7 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireMinted(tokenId);
 
-        return HoneycombsMetadata.tokenURI(tokenId, honeycombs);
+        return HoneycombsMetadata.tokenURI(honeycombs, tokenId);
     }
 
     /// @notice Returns how many tokens this contract manages.
