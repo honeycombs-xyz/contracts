@@ -48,7 +48,9 @@ library HoneycombsMetadata {
                     ? trait("Base Hexagon", honeycomb.baseHexagon.hexagonType == 0 ? "Flat Top" : "Pointy Top", ",")
                     : "",
                 honeycomb.isRevealed ? trait("Base Hexagon Fill Color", honeycomb.baseHexagon.fillColor, ",") : "",
-                honeycomb.isRevealed ? trait("Stroke Width", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth), ",") : "",
+                honeycomb.isRevealed
+                    ? trait("Stroke Width", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth), ",")
+                    : "",
                 honeycomb.isRevealed ? trait("Shape", shapes(honeycomb.grid.shape), ",") : "",
                 honeycomb.isRevealed ? trait("Rows", Utilities.uint2str(honeycomb.grid.rows), ",") : "",
                 honeycomb.isRevealed ? trait("Rotation", Utilities.uint2str(honeycomb.grid.rotation), ",") : "",
@@ -69,15 +71,27 @@ library HoneycombsMetadata {
     }
 
     /// @dev Get the names for different chromes (max colors). Compare HoneycombsArt.getChrome().
-    /// @param chromeIndex The index of the chrome.
-    function chromes(uint8 chromeIndex) public pure returns (string memory) {
-        return ["Monochrome", "Dichrome", "Trichrome", "Tetrachrome", "Pentachrome", "Hexachrome", "Many"][chromeIndex];
+    /// @param chrome The chrome of the gradient, which is the number of max colors.
+    function chromes(uint8 chrome) public pure returns (string memory) {
+        if (chrome <= 6) {
+            return ["Monochrome", "Dichrome", "Trichrome", "Tetrachrome", "Pentachrome", "Hexachrome"][chrome - 1];
+        } else {
+            return "Many";
+        }
     }
 
     /// @dev Get the names for different durations. Compare HoneycombsArt.getDuration().
-    /// @param durationIndex The index of the duration.
-    function durations(uint16 durationIndex) public pure returns (string memory) {
-        return ["Rave", "Normal", "Soothing", "Meditative"][durationIndex];
+    /// @param duration The duration in seconds.
+    function durations(uint16 duration) public pure returns (string memory) {
+        if (duration == 10) {
+            return "Rave";
+        } else if (duration == 40) {
+            return "Normal";
+        } else if (duration == 80) {
+            return "Soothing";
+        } else {
+            return "Meditative";
+        }
     }
 
     /// @dev Generate the SVG snipped for a single attribute.

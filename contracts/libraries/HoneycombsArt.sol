@@ -5,17 +5,15 @@ import "../interfaces/IHoneycombs.sol";
 import "./Colors.sol";
 import "./Utilities.sol";
 
+import "hardhat/console.sol";
+
 /**
     TODO
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
     - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid()
     
-    - [] Verify +4/+2 for animation color makes sense 
-    - [] Verify the animation count is 30 total values, 15 diff colors
     - [] Verify base stroke width should be 8 as constant or based on hexagon size
-    - [] Add logic for selecting initial primary colors of the gradients that isn't purely random, loosely based on the color palette
-    - [] Add logic for probabilities of some random variables
-    - [] Add logic for isRevealed for commit and reveal scheme
+    - [] Add art for isRevealed = false
  */
 
 /**
@@ -35,14 +33,9 @@ library HoneycombsArt {
         }
     }
 
-    /// @dev Get from different shapes of the honeycomb. Corresponds to shape trait in HoneycombsMetadata.sol.
-    function getShape(uint8 index) public pure returns (uint8) {
-        return uint8([SHAPE.TRIANGLE, SHAPE.DIAMOND, SHAPE.HEXAGON, SHAPE.RANDOM][index]);
-    }
-
     /// @dev Get from different chromes or max primary colors. Corresponds to chrome trait in HoneycombsMetadata.sol.
     function getChrome(uint8 index) public pure returns (uint8) {
-        return uint8([0, 1, 2, 3, 4, 5, 6, Colors.COLORS().length][index]);
+        return uint8([1, 2, 3, 4, 5, 6, Colors.COLORS().length][index]);
     }
 
     /// @dev Get from different animation durations in seconds. Corresponds to duration trait in HoneycombsMetadata.sol.
@@ -55,15 +48,15 @@ library HoneycombsArt {
     function getLinearGradientSvg(GradientData memory data) public pure returns (bytes memory) {
         // prettier-ignore
         bytes memory svg = abi.encodePacked(
-            '<linearGradient id="gradient', data.gradientId, '" x1="0%" x2="0%" y1="', data.y1, 
-                    '%" y2="', data.y2, '%">',
+            '<linearGradient id="gradient', Utilities.uint2str(data.gradientId), '" x1="0%" x2="0%" y1="', 
+                    Utilities.uint2str(data.y1), '%" y2="', Utilities.uint2str(data.y2), '%">',
                 '<stop stop-color="', data.stop1.color, '">',
                     '<animate attributeName="stop-color" values="', data.stop1.animationColorValues, '" dur="', 
-                        data.duration, 's" begin="animation.begin" repeatCount="indefinite" />',
+                        Utilities.uint2str(data.duration), 's" begin="animation.begin" repeatCount="indefinite" />',
                 '</stop>',
-                '<stop offset="0.', data.offset, '" stop-color="', data.stop2.color, '">',
+                '<stop offset="0.', Utilities.uint2str(data.offset), '" stop-color="', data.stop2.color, '">',
                     '<animate attributeName="stop-color" values="', data.stop2.animationColorValues, '" dur="', 
-                        data.duration, 's" begin="animation.begin" repeatCount="indefinite" />',
+                        Utilities.uint2str(data.duration), 's" begin="animation.begin" repeatCount="indefinite" />',
                 '</stop>',
             '</linearGradient>'
         );
@@ -73,56 +66,56 @@ library HoneycombsArt {
 
     /// @dev Get the stop for a linear gradient.
     /// @param honeycomb The honeycomb data used for rendering.
+    /// @param stopCount The current stop count - used for seeding the random number generator.
     function getLinearGradientStopSvg(
-        IHoneycombs.Honeycomb memory honeycomb
+        IHoneycombs.Honeycomb memory honeycomb,
+        uint8 stopCount
     ) public pure returns (GradientStop memory) {
         GradientStop memory stop;
-
-        // We pick 14 colors for our gradient, which leads to 15 different colors including the initial color.
-        uint8 count = 14;
         string[46] memory allColors = Colors.COLORS();
 
         // Get random stop color.
-        uint8 initialIndex = uint8(Utilities.random(honeycomb.seed, "linearGradientStop", allColors.length));
-        stop.color = allColors[initialIndex];
+        uint256 currentIndex = Utilities.random(
+            honeycomb.seed,
+            abi.encodePacked("linearGradientStop", Utilities.uint2str(stopCount)),
+            allColors.length
+        );
+        stop.color = abi.encodePacked("#", allColors[currentIndex]);
+        // console.log("getLinearGradientStopSvg(): initialIndex", currentIndex);
 
         bytes memory values;
-        // Forward loop through our color gradient. First and last value is the initial stop color.
-        if (honeycomb.gradients.direction == 0) {
-            for (uint256 i; i < count - 2; ) {
-                values = abi.encodePacked(values, "#", allColors[(initialIndex + ((i * 2) % allColors.length))], ";");
-                unchecked {
-                    ++i;
-                }
+        // Add the initial color.
+        values = abi.encodePacked(values, stop.color, ";");
+
+        // Get all animation values based on the direction.
+        bool forwardDirection = honeycomb.gradients.direction == 0;
+
+        // We pick 14 more different colors for the gradient.
+        uint8 count = 14;
+        for (uint256 i = 0; i <= (count * 2) - 2; ) {
+            bool isFirstHalf = i < count;
+
+            // For the first half, follow the direction. For the second half, reverse the direction.
+            if (isFirstHalf == forwardDirection) {
+                currentIndex = (currentIndex + 2) % allColors.length;
+            } else {
+                currentIndex = (currentIndex + allColors.length - 2) % allColors.length;
             }
 
-            // Reverse for smooth animations.
-            for (uint256 i = count - 2; i >= 0; ) {
-                values = abi.encodePacked(values, "#", allColors[(initialIndex + ((i * 2) % allColors.length))], ";");
-                unchecked {
-                    --i;
-                }
-            }
-        } else {
-            // Reverse loop through our color gradient. First and last value is the initial stop color.
-            for (uint256 i = count - 2; i >= 0; ) {
-                values = abi.encodePacked(values, "#", allColors[(initialIndex + ((i * 2) % allColors.length))], ";");
-                unchecked {
-                    --i;
-                }
-            }
+            // console.log("getLinearGradientStopSvg(): i", i);
+            // console.log("getLinearGradientStopSvg(): colorIndex", currentIndex);
 
-            // Reverse for smooth animations.
-            for (uint256 i; i < count - 2; ) {
-                values = abi.encodePacked(values, "#", allColors[(initialIndex + ((i * 2) % allColors.length))], ";");
-                unchecked {
-                    ++i;
-                }
+            values = abi.encodePacked(values, "#", allColors[currentIndex], ";");
+
+            unchecked {
+                ++i;
             }
         }
 
-        stop.animationColorValues = abi.encodePacked(values, "#", allColors[initialIndex]);
+        // console.log("About to exit getLinearGradientStopSvg()");
 
+        // Add the last color.
+        stop.animationColorValues = abi.encodePacked(values, stop.color);
         return stop;
     }
 
@@ -132,22 +125,51 @@ library HoneycombsArt {
         bytes memory svg;
 
         // Initialize array of stops (id => svgString) for reuse once we reach the max color count.
-        GradientStop[] memory stops = new GradientStop[](honeycomb.grid.totalGradients);
-        GradientStop memory prevStop = getLinearGradientStopSvg(honeycomb);
-        stops[0] = prevStop;
+        GradientStop[] memory stops = new GradientStop[](honeycomb.grid.totalGradients + 1);
+        // console.log("Stops MAX LENGTH length is: ", stops.length);
+
+        uint8 stopCount;
+        GradientStop memory prevStop = getLinearGradientStopSvg(honeycomb, stopCount);
+        stops[stopCount] = prevStop;
+        ++stopCount;
 
         // Loop through all gradients and generate the svg.
-        for (uint8 i; i < honeycomb.grid.totalGradients; ) {
+        for (uint256 i; i < honeycomb.grid.totalGradients; ) {
             GradientStop memory stop;
 
+            // console.log("Stops length is: ", stopCount);
+
             // Get next stop.
-            if (stops.length < honeycomb.gradients.chrome) {
-                stop = getLinearGradientStopSvg(honeycomb);
-                stops[i + 1] = stop;
+            if (stopCount < honeycomb.gradients.chrome) {
+                // console.log("We are generating a new stop.");
+                stop = getLinearGradientStopSvg(honeycomb, stopCount);
+                stops[stopCount] = stop;
+                unchecked {
+                    ++stopCount;
+                }
             } else {
+                // console.log("We are reusing a stop.");
                 // Randomly select a stop from existing ones.
-                stop = stops[Utilities.random(honeycomb.seed, abi.encodePacked("stop", i), stops.length)];
+                stop = stops[
+                    Utilities.random(honeycomb.seed, abi.encodePacked("stop", Utilities.uint2str(i)), stopCount)
+                ];
+                // console.log("Stop is: ", string(stop.color));
             }
+
+            // // Print out all stop colors.
+            // for (uint256 j; j < 33; ) {
+            //     uint256 index = Utilities.random(
+            //         honeycomb.seed,
+            //         abi.encodePacked("stop", Utilities.uint2str(j)),
+            //         stopCount
+            //     );
+            //     console.log("Stop color is: ", string(stops[index].color));
+            //     unchecked {
+            //         ++j;
+            //     }
+            // }
+
+            // console.log("About to get gradient svg.");
 
             // Get gradients svg based on the base hexagon type.
             if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.POINTY)) {
@@ -155,7 +177,7 @@ library HoneycombsArt {
                 gradientData.stop1 = prevStop;
                 gradientData.stop2 = stop;
                 gradientData.duration = honeycomb.gradients.duration;
-                gradientData.gradientId = i + 1;
+                gradientData.gradientId = uint8(i + 1);
                 gradientData.y1 = 25;
                 gradientData.y2 = 81;
                 gradientData.offset = 72;
@@ -173,17 +195,23 @@ library HoneycombsArt {
                 gradientData1.stop1 = prevStop;
                 gradientData1.stop2 = stop;
                 gradientData1.duration = honeycomb.gradients.duration;
-                gradientData1.gradientId = i + 1;
+                gradientData1.gradientId = uint8(i + 1);
                 gradientData1.y1 = 50;
                 gradientData1.y2 = 100;
                 gradientData1.offset = 72;
                 bytes memory gradient1Svg = getLinearGradientSvg(gradientData1);
 
+                if (i == honeycomb.grid.totalGradients - 1) {
+                    // If this is the last gradient, we don't need to generate the second gradient.
+                    svg = abi.encodePacked(svg, gradient1Svg);
+                    break;
+                }
+
                 GradientData memory gradientData2;
                 gradientData2.stop1 = prevStop;
                 gradientData2.stop2 = stop;
                 gradientData2.duration = honeycomb.gradients.duration;
-                gradientData2.gradientId = i + 2;
+                gradientData2.gradientId = uint8(i + 2);
                 gradientData2.y1 = 4;
                 gradientData2.y2 = 100;
                 gradientData2.offset = 30;
@@ -226,35 +254,36 @@ library HoneycombsArt {
     /// @dev Add positioning to the grid (for centering on canvas).
     /// @dev Note this function appends attributes to grid object, so returned object has original grid + positioning.
     /// @param honeycomb The honeycomb data used for rendering.
-    function addGridPositioning(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
+    /// @param grid The grid metadata.
+    function addGridPositioning(
+        IHoneycombs.Honeycomb memory honeycomb,
+        IHoneycombs.Grid memory grid
+    ) public pure returns (IHoneycombs.Grid memory) {
         // The base stroke width of the hexagon.
         uint8 HEXAGON_STROKE_WIDTH = 8;
 
         // Compute grid properties.
-        honeycomb.grid.rowDistance =
+        grid.rowDistance =
             honeycomb.canvas.hexagonSize -
             ((honeycomb.canvas.hexagonSize / 4) - ((3 * HEXAGON_STROKE_WIDTH) / 4));
-        honeycomb.grid.columnDistance = honeycomb.canvas.hexagonSize / 2;
-        uint16 gridWidth = honeycomb.grid.longestRowCount * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
-        uint16 gridHeight = honeycomb.grid.rows * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
+        grid.columnDistance = honeycomb.canvas.hexagonSize / 2;
+        uint16 gridWidth = grid.longestRowCount * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
+        uint16 gridHeight = grid.rows * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
 
         /**
          * Swap variables if it is a flat top hexagon (this math assumes pointy top as default). Rotating a flat top
          * hexagon 90 degrees clockwise results in a pointy top hexagon. This effectively swaps the x and y axis.
          */
         if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.FLAT)) {
-            (honeycomb.grid.rowDistance, honeycomb.grid.columnDistance) = Utilities.swap(
-                honeycomb.grid.rowDistance,
-                honeycomb.grid.columnDistance
-            );
+            (grid.rowDistance, grid.columnDistance) = Utilities.swap(grid.rowDistance, grid.columnDistance);
             (gridWidth, gridHeight) = Utilities.swap(gridWidth, gridHeight);
         }
 
         // Compute grid positioning.
-        honeycomb.grid.gridX = (810 - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
-        honeycomb.grid.gridY = (810 - gridHeight) / 2;
+        grid.gridX = (810 - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
+        grid.gridY = (810 - gridHeight) / 2;
 
-        return honeycomb.grid;
+        return grid;
     }
 
     /// @dev Get the honeycomb grid for a random shape.
@@ -282,7 +311,7 @@ library HoneycombsArt {
         }
 
         // Determine positioning of entire grid, which is based on the longest row.
-        grid = addGridPositioning(honeycomb); // appends to grid object
+        grid = addGridPositioning(honeycomb, grid); // appends to grid object
 
         int8 lastRowEvenOdd = -1; // Helps avoid overlapping hexagons: -1 = unset, 0 = even, 1 = odd
         // Create random grid. Only working with pointy tops for simplicity.
@@ -323,7 +352,7 @@ library HoneycombsArt {
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows;
-        grid = addGridPositioning(honeycomb); // appends to grid object
+        grid = addGridPositioning(honeycomb, grid); // appends to grid object
 
         // Create grid based on hexagon base type.
         if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.POINTY)) {
@@ -394,7 +423,7 @@ library HoneycombsArt {
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows / 2 + 1;
-        grid = addGridPositioning(honeycomb); // appends to grid object
+        grid = addGridPositioning(honeycomb, grid); // appends to grid object
 
         // Create diamond grid. Both flat top and pointy top result in the same grid, so no need to check hexagon type.
         for (uint8 i; i < grid.rows; ) {
@@ -430,7 +459,7 @@ library HoneycombsArt {
 
         // Determine positioning of entire grid, which is based on the longest row.
         grid.longestRowCount = grid.rows;
-        grid = addGridPositioning(honeycomb); // appends to grid object
+        grid = addGridPositioning(honeycomb, grid); // appends to grid object
 
         // Create grid based on hexagon base type.
         if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.POINTY)) {
@@ -510,7 +539,7 @@ library HoneycombsArt {
             '<g transform="scale(1) rotate(', 
                     Utilities.uint2str(honeycomb.grid.rotation) ,',', 
                     Utilities.uint2str(honeycomb.canvas.size / 2) ,',', 
-                    Utilities.uint2str(honeycomb.canvas.size / 2), '">',
+                    Utilities.uint2str(honeycomb.canvas.size / 2), ')">',
                 gridData.hexagonsSvg,
             '</g>'
         );
@@ -528,16 +557,29 @@ library HoneycombsArt {
         IHoneycombs.StoredHoneycomb memory stored = honeycombs.all[tokenId];
         honeycomb.stored = stored;
 
-        // Set up the source of randomness + seed for this Honeycomb.
+        // Determine if the honeycomb is revealed via the epoch randomness.
         uint128 randomness = honeycombs.epochs[stored.epoch].randomness;
-        honeycomb.seed = (uint256(keccak256(abi.encodePacked(randomness, stored.seed))) % type(uint128).max);
         honeycomb.isRevealed = randomness > 0;
+
+        // Exit early if the honeycomb is not revealed.
+        if (!honeycomb.isRevealed) {
+            return honeycomb;
+        }
+
+        // Set the seed.
+        honeycomb.seed = (uint256(keccak256(abi.encodePacked(randomness, stored.seed))) % type(uint128).max);
 
         // Set the canvas properties.
         honeycomb.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
         honeycomb.canvas.size = 810;
         honeycomb.canvas.hexagonSize = 72;
         honeycomb.canvas.maxHexagonsPerLine = 8; // (810 (canvasSize) - 90 (padding) / 72 (hexagon size)) - 1 = 8
+
+        console.log("\nSeed is: %s", Utilities.uint2str(honeycomb.seed));
+        console.log("Canvas Color: %s", honeycomb.canvas.color);
+        console.log("Canvas Size: %s", Utilities.uint2str(honeycomb.canvas.size));
+        console.log("Canvas Hexagon Size: %s", Utilities.uint2str(honeycomb.canvas.hexagonSize));
+        console.log("Canvas Max Hexagons Per Line: %s", Utilities.uint2str(honeycomb.canvas.maxHexagonsPerLine));
 
         // Get the base hexagon properties.
         honeycomb.baseHexagon.hexagonType = uint8(
@@ -549,25 +591,40 @@ library HoneycombsArt {
             ? "white"
             : "black";
 
+        console.log("Base Hexagon Type: %s", honeycomb.baseHexagon.hexagonType);
+        console.log("Base Hexagon Stroke Width: %s", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth));
+        console.log("Base Hexagon Fill Color: %s", honeycomb.baseHexagon.fillColor);
+
         /**
          * Get the grid properties, including the actual svg.
          * Note: Random shapes must only have pointy top hexagon bases (artist design choice).
          * Note: Triangles have unique rotation options (artist design choice).
          */
-        honeycomb.grid.shape = getShape(uint8(Utilities.random(honeycomb.seed, "gridShape", 4)));
+        honeycomb.grid.shape = uint8(Utilities.random(honeycomb.seed, "gridShape", 4));
         if (honeycomb.grid.shape == uint8(SHAPE.RANDOM)) honeycomb.baseHexagon.hexagonType = uint8(HEXAGON_TYPE.POINTY);
 
         honeycomb.grid.rotation = honeycomb.grid.shape == uint8(SHAPE.TRIANGLE)
             ? uint16(Utilities.random(honeycomb.seed, "rotation", 4) * 90)
             : uint16(Utilities.random(honeycomb.seed, "rotation", 12) * 30);
 
+        console.log("Grid Shape: %s", honeycomb.grid.shape);
+        console.log("Grid Rotation: %s", Utilities.uint2str(honeycomb.grid.rotation));
+
         (honeycomb.grid.svg, honeycomb.grid.totalGradients, honeycomb.grid.rows) = generateGrid(honeycomb);
+
+        console.log("Grid Total Gradients: %s", Utilities.uint2str(honeycomb.grid.totalGradients));
+        console.log("Grid Rows: %s", Utilities.uint2str(honeycomb.grid.rows));
 
         // Get the gradients properties, including the actual svg.
         honeycomb.gradients.chrome = getChrome(uint8(Utilities.random(honeycomb.seed, "chrome", 7)));
         honeycomb.gradients.duration = getDuration(uint16(Utilities.random(honeycomb.seed, "duration", 4)));
         honeycomb.gradients.direction = uint8(Utilities.random(honeycomb.seed, "direction", 2));
+        console.log("Gradients Chrome: %s", honeycomb.gradients.chrome);
+        console.log("Gradients Duration: %s", honeycomb.gradients.duration);
+        console.log("Gradients Direction: %s", honeycomb.gradients.direction);
         honeycomb.gradients.svg = generateGradientsSvg(honeycomb);
+
+        console.log("Done rendering");
     }
 
     /// @dev Generate the complete SVG and its associated data for a honeycomb.
@@ -579,25 +636,35 @@ library HoneycombsArt {
     ) public view returns (IHoneycombs.Honeycomb memory) {
         IHoneycombs.Honeycomb memory honeycomb = generateHoneycombRenderData(honeycombs, tokenId);
 
-        // prettier-ignore
-        honeycomb.svg = abi.encodePacked(
-            // Note: Use 810 as hardcoded size to avoid stack too deep error.
-            '<svg viewBox="0 0 810 810" "fill="none" xmlns="http://www.w3.org/2000/svg"', 
-                    'style="width:100%;background:', honeycomb.canvas.color, ';">',
-                '<defs>',
-                    '<path id="hexagon" fill="', honeycomb.baseHexagon.fillColor,
-                        '" stroke-width="', Utilities.uint2str(honeycomb.baseHexagon.strokeWidth),
-                        '" d="', honeycomb.baseHexagon.path ,'" />',
-                    honeycomb.gradients.svg,
-                '</defs>',
-                '<rect width="810" height="810" fill="', honeycomb.canvas.color, '"/>',
-                honeycomb.grid.svg,
-                '<rect width="810" height="810" fill="transparent">',
-                    '<animate attributeName="width" from="810" to="0" dur="0.2s" fill="freeze" ',
-                        'begin="click" id="animation"/>',
-                '</rect>',
-            '</svg>'
-        );
+        if (!honeycomb.isRevealed) {
+            // prettier-ignore
+            honeycomb.svg = abi.encodePacked(
+                '<svg viewBox="0 0 810 810" fill="none" xmlns="http://www.w3.org/2000/svg"',
+                    'style="width:100%;background:black;">',
+                    '<rect width="810" height="810" fill="black"/>',
+                '</svg>'
+            );
+        } else {
+            // prettier-ignore
+            honeycomb.svg = abi.encodePacked(
+                // Note: Use 810 as hardcoded size to avoid stack too deep error.
+                '<svg viewBox="0 0 810 810" fill="none" xmlns="http://www.w3.org/2000/svg"', 
+                        'style="width:100%;background:', honeycomb.canvas.color, ';">',
+                    '<defs>',
+                        '<path id="hexagon" fill="', honeycomb.baseHexagon.fillColor,
+                            '" stroke-width="', Utilities.uint2str(honeycomb.baseHexagon.strokeWidth),
+                            '" d="', honeycomb.baseHexagon.path ,'" />',
+                        honeycomb.gradients.svg,
+                    '</defs>',
+                    '<rect width="810" height="810" fill="', honeycomb.canvas.color, '"/>',
+                    honeycomb.grid.svg,
+                    '<rect width="810" height="810" fill="transparent">',
+                        '<animate attributeName="width" from="810" to="0" dur="0.2s" fill="freeze" ',
+                            'begin="click" id="animation"/>',
+                    '</rect>',
+                '</svg>'
+            );
+        }
 
         return honeycomb;
     }
@@ -605,7 +672,7 @@ library HoneycombsArt {
 
 /// @dev All internal data relevant to a gradient stop.
 struct GradientStop {
-    string color; // color of the gradient stop
+    bytes color; // color of the gradient stop
     bytes animationColorValues; // color values for the animation
 }
 

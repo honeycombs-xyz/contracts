@@ -6,7 +6,7 @@ interface IHoneycombs {
     struct StoredHoneycomb {
         uint32 epoch; // Each honeycomb is revealed in an epoch
         uint24 day; // The days since token was created
-        uint16 seed; // A unique identifier to enable swapping (this is the token ID since it is pre-reveal)
+        uint16 seed; // A unique identifier (this is the token ID since it is pre-reveal)
     }
 
     struct Honeycomb {

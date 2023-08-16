@@ -1,15 +1,12 @@
-import fs from 'fs'
-import { Contract } from 'ethers'
+import fs from 'fs';
+import { Contract } from 'ethers';
 
 export const fetchAndRender = async (
-  id: number,
   contract: Contract,
+  id: number,
   prepend: string = '',
 ) => {
-  const honeycomb = await contract.getHoneycomb(id)
-
-  fs.writeFileSync(
-    `test/dist/${prepend}${id}.svg`,
-    await contract.svg(id)
-  )
-}
+  const svg = await contract.svg(id);
+  fs.writeFileSync(`test/dist/${prepend}${id}.svg`, svg);
+  return svg;
+};

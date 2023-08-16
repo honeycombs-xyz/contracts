@@ -9,7 +9,7 @@ import "./standards/HONEYCOMBS721.sol";
 
 /**
     TODO List:
-    - [] Add product conditions for when not allowed to mint a new Honeycomb
+    - [] Add product conditions for when not allowed to mint a new Honeycomb - maxSupply, etc
     - [] Should we add ability to mint multiple Honeycombs at once?
     - [] Verify and remove MetadataUpdate functionality - used originally for compositing / sacrificing
  */
@@ -27,15 +27,14 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     constructor() {
         honeycombs.day0 = uint32(block.timestamp);
         honeycombs.epoch = 1;
-        honeycombs.maxSupply = 10000;
     }
 
     /// @notice Mint a new Honeycomb.
     /// @param tokenId The token ID to mint.
     /// @param recipient The address to receive the tokens.
     function mint(uint256 tokenId, address recipient) external {
-        // Check whether tokenId is between 1 and maxSupply.
-        if (tokenId < 1 || tokenId > honeycombs.maxSupply) {
+        // Check whether tokenId is positive.
+        if (tokenId < 0) {
             revert NotAllowed();
         }
 

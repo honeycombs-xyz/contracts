@@ -1,20 +1,13 @@
-import { task } from 'hardhat/config'
-import { VV_TOKENS } from '../helpers/constants'
-import { fetchAndRender } from '../helpers/render'
+import { task } from 'hardhat/config';
+import { fetchAndRender } from '../helpers/render';
 
 task('render', 'Mint tokens')
   .addParam('contract', 'The Honeycombs Contract address')
-  .addOptionalParam('id', 'Which token ID to render')
+  .addParam('id', 'Which token ID to render')
   .setAction(async ({ contract, id }, hre) => {
-    const honeycombs = await hre.ethers.getContractAt('Honeycombs', contract)
-
-    console.log(await honeycombs.getEpochData(1))
+    const honeycombs = await hre.ethers.getContractAt('Honeycombs', contract);
 
     if (id) {
-      await fetchAndRender(id, honeycombs)
-    } else {
-      for (const id of VV_TOKENS) {
-        await fetchAndRender(id, honeycombs)
-      }
+      await fetchAndRender(honeycombs, id);
     }
-  })
+  });
