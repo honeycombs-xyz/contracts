@@ -17,7 +17,7 @@ import "./standards/HONEYCOMBS721.sol";
 /**
 @title  Honeycombs
 @author Gaurang Patel (adapted from checks.vv contracts)
-@notice Lokah Samastah Sukhino Bhavantu
+@notice You are searching the world for treasure, but the real treasure is yourself. - Rumi
 */
 contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     /// @dev We use this database for persistent storage.
