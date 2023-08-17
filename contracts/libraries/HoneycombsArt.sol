@@ -12,6 +12,7 @@ import "hardhat/console.sol";
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
     - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid() + individual salt index
     - [] Add art for isRevealed = false
+    - [] Remove console.logs
  */
 
 /**
