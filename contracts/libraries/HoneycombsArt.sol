@@ -12,9 +12,6 @@ import "hardhat/console.sol";
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
     - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid() + individual salt index
     - [] Add art for isRevealed = false
-
-contracts/contracts/libraries/HoneycombsMetadata.sol    - [] Verify many variants SVG directly + associated metadata  
-    - [] Verify base stroke width should be 8 as constant or based on hexagon size
  */
 
 /**
@@ -260,16 +257,13 @@ library HoneycombsArt {
         IHoneycombs.Honeycomb memory honeycomb,
         IHoneycombs.Grid memory grid
     ) public pure returns (IHoneycombs.Grid memory) {
-        // The base stroke width of the hexagon.
-        uint8 HEXAGON_STROKE_WIDTH = 8;
-
         // Compute grid properties.
         grid.rowDistance =
             honeycomb.canvas.hexagonSize -
-            ((honeycomb.canvas.hexagonSize / 4) - ((3 * HEXAGON_STROKE_WIDTH) / 4));
+            ((honeycomb.canvas.hexagonSize / 4) - ((3 * honeycomb.baseHexagon.strokeWidth) / 4));
         grid.columnDistance = honeycomb.canvas.hexagonSize / 2;
-        uint16 gridWidth = grid.longestRowCount * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
-        uint16 gridHeight = grid.rows * honeycomb.canvas.hexagonSize + HEXAGON_STROKE_WIDTH;
+        uint16 gridWidth = grid.longestRowCount * honeycomb.canvas.hexagonSize + honeycomb.baseHexagon.strokeWidth;
+        uint16 gridHeight = grid.rows * honeycomb.canvas.hexagonSize + honeycomb.baseHexagon.strokeWidth;
 
         /**
          * Swap variables if it is a flat top hexagon (this math assumes pointy top as default). Rotating a flat top
@@ -281,7 +275,7 @@ library HoneycombsArt {
         }
 
         // Compute grid positioning.
-        grid.gridX = (810 - gridWidth) / 2 - (HEXAGON_STROKE_WIDTH / 2);
+        grid.gridX = (810 - gridWidth) / 2 - (honeycomb.baseHexagon.strokeWidth / 2);
         grid.gridY = (810 - gridHeight) / 2;
 
         return grid;
