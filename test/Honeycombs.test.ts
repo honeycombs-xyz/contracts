@@ -15,6 +15,7 @@ import {
   VAULT,
 } from '../helpers/constants';
 import { fetchAndRender } from '../helpers/render';
+import { decodeBase64URI } from '../helpers/decode-uri';
 const { expect } = require('chai');
 const hre = require('hardhat');
 const ethers = hre.ethers;
@@ -42,17 +43,31 @@ describe('Honeycombs', () => {
 
       expect(await honeycombs.totalSupply()).to.equal(1);
       await mine(50);
+      await honeycombs.resolveEpochIfNecessary();
       await fetchAndRender(honeycombs, 111, 'post_reveal_');
+    });
 
-      const tx = await honeycombs.connect(user1).mint(222, USER_1);
-      await expect(tx)
+    it('Should allow multiple mints', async () => {
+      const { honeycombs } = await loadFixture(deployHoneycombs);
+      const { user1, user2 } = await loadFixture(impersonateAccounts);
+
+      await expect(honeycombs.connect(user1).mint(111, USER_1))
         .to.emit(honeycombs, 'Transfer')
-        .withArgs(ethers.constants.AddressZero, USER_1, 222)
-        .to.emit(honeycombs, 'NewEpoch');
+        .withArgs(ethers.constants.AddressZero, USER_1, 111);
+      await expect(honeycombs.connect(user1).mint(222, USER_1))
+        .to.emit(honeycombs, 'Transfer')
+        .withArgs(ethers.constants.AddressZero, USER_1, 222);
+
+      await mine(50);
+
+      const tx = await honeycombs.connect(user2).mint(333, USER_2);
+      expect(tx)
+        .to.emit(honeycombs, 'Transfer')
+        .withArgs(ethers.constants.AddressZero, USER_2, 333);
       const receipt = await tx.wait();
       expect(receipt.events.length).to.equal(2); // new mint + new epoch
 
-      expect(await honeycombs.totalSupply()).to.equal(2);
+      expect(await honeycombs.totalSupply()).to.equal(3);
     });
 
     it('Should set the token birth date correctly at mint', async () => {
@@ -73,7 +88,7 @@ describe('Honeycombs', () => {
       expect((await honeycombs.getHoneycomb(444)).stored.day).to.equal(2);
     });
 
-    it.only('Should not allow minting of the same token twice', async () => {
+    it('Should not allow minting of the same token twice', async () => {
       const { honeycombs } = await loadFixture(deployHoneycombs);
       const { user1 } = await loadFixture(impersonateAccounts);
 
@@ -276,7 +291,7 @@ describe('Honeycombs', () => {
     });
   });
 
-  describe.only('Simulate Onchain Activity', () => {
+  describe('Simulate Onchain Activity', () => {
     it('Should blitz activity for no runtime errors', async () => {
       const { honeycombs } = await loadFixture(deployHoneycombs);
       const { user1, user2 } = await loadFixture(impersonateAccounts);
@@ -316,6 +331,13 @@ describe('Honeycombs', () => {
       // Fetch and Render the honeycombs for all token ids
       for (const tokenId of tokenIds) {
         await fetchAndRender(honeycombs, tokenId, 'blitz_');
+
+        // Get associated metadata and write to file for debugging
+        const metadata = decodeBase64URI(await honeycombs.tokenURI(tokenId));
+        fs.writeFileSync(
+          `test/dist/decoded-tokenuri-${tokenId}.json`,
+          JSON.stringify(metadata),
+        );
       }
     });
   });

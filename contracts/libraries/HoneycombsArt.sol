@@ -10,10 +10,11 @@ import "hardhat/console.sol";
 /**
     TODO
     - [] Unit test that randomness creates different outcomes for each block and different tokenIds
-    - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid()
-    
-    - [] Verify base stroke width should be 8 as constant or based on hexagon size
+    - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid() + individual salt index
     - [] Add art for isRevealed = false
+
+contracts/contracts/libraries/HoneycombsMetadata.sol    - [] Verify many variants SVG directly + associated metadata  
+    - [] Verify base stroke width should be 8 as constant or based on hexagon size
  */
 
 /**
@@ -287,6 +288,7 @@ library HoneycombsArt {
     }
 
     /// @dev Get the honeycomb grid for a random shape.
+    /// @dev Note: can only be called for pointy tops (flat tops are not supported as they would be redundant).
     /// @param honeycomb The honeycomb data used for rendering.
     function getRandomGrid(IHoneycombs.Honeycomb memory honeycomb) public pure returns (IHoneycombs.Grid memory) {
         IHoneycombs.Grid memory grid;
@@ -378,16 +380,17 @@ library HoneycombsArt {
         } else if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.FLAT)) {
             uint8 flatTopRows = grid.rows * 2 - 1;
             grid.totalGradients = flatTopRows;
+            uint8 halfRows = grid.rows / 2;
 
             for (uint8 i; i < flatTopRows; ) {
                 // Determine hexagons in row.
                 uint8 hexagonsInRow;
-                if (i < grid.rows / 2) {
+                if (i <= grid.rows / 2) {
                     // ascending, i.e. rows = 1 2 3 4 5 when rows = 5
-                    hexagonsInRow = i / 2 + 1;
-                } else if (i < flatTopRows - grid.rows / 2 - 1) {
+                    hexagonsInRow = i + 1;
+                } else if (i < flatTopRows - halfRows - 1) {
                     // alternate between rows / 2 + 1 and rows / 2 every other row
-                    hexagonsInRow = (grid.rows / 2 + i) % 2 == 0 ? grid.rows / 2 + 1 : grid.rows / 2;
+                    hexagonsInRow = (halfRows + i) % 2 == 0 ? halfRows + 1 : halfRows;
                 } else {
                     // descending, i.e. rows = 5, 4, 3, 2, 1 when rows = 5
                     hexagonsInRow = flatTopRows - i;
@@ -395,7 +398,7 @@ library HoneycombsArt {
 
                 // Assign indexes for each hexagon.
                 for (uint8 j; j < hexagonsInRow; ) {
-                    uint8 xIndex = (grid.rows - hexagonsInRow) - grid.rows / 2 + (j * 2);
+                    uint8 xIndex = (grid.rows - hexagonsInRow) - halfRows + (j * 2);
                     grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
                     unchecked {
                         ++j;
@@ -488,16 +491,16 @@ library HoneycombsArt {
             for (uint8 i; i < flatTopRows; ) {
                 // Determine hexagons in row. First half is ascending. Second half is descending.
                 uint8 hexagonsInRow;
-                if (i < flatTopRows / 2) {
+                if (i <= flatTopRows / 2) {
                     // ascending with peak, i.e. rows = 1 1 2 2 3 when rows = 5
                     hexagonsInRow = i / 2 + 1;
                 } else {
                     // descending with peak, i.e. rows = 2 2 1 1 when rows = 5
-                    hexagonsInRow = (flatTopRows - i) / 2 + 1;
+                    hexagonsInRow = ((flatTopRows - i - 1) / 2) + 1;
                 }
 
                 // Assign indexes for each hexagon. Each row has i + 1 hexagons.
-                for (uint8 j; j < i + 1; ) {
+                for (uint8 j; j < hexagonsInRow; ) {
                     uint8 xIndex = (i % 2) + (j * 2);
                     grid.hexagonsSvg = getUpdatedHexagonsSvg(grid, xIndex, i, i + 1);
                     unchecked {
@@ -561,6 +564,13 @@ library HoneycombsArt {
         uint128 randomness = honeycombs.epochs[stored.epoch].randomness;
         honeycomb.isRevealed = randomness > 0;
 
+        // console.log("\nRENDER DATA Stored Epoch is %s", stored.epoch);
+        // console.log("RENDER DATA Honeycombs Epoch Committed is %s", honeycombs.epochs[stored.epoch].committed);
+        // console.log("RENDER DATA Honeycombs Epoch Revealed is %s", honeycombs.epochs[stored.epoch].revealed);
+        // console.log("RENDER DATA Honeycombs Epoch Reveal Block is %s", honeycombs.epochs[stored.epoch].revealBlock);
+        // console.log("RENDER DATA Current Block is %s", block.number);
+        // console.log("RENDER DATA Randomness is %s", randomness);
+
         // Exit early if the honeycomb is not revealed.
         if (!honeycomb.isRevealed) {
             return honeycomb;
@@ -570,7 +580,7 @@ library HoneycombsArt {
         honeycomb.seed = (uint256(keccak256(abi.encodePacked(randomness, stored.seed))) % type(uint128).max);
 
         // Set the canvas properties.
-        honeycomb.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "white" : "black";
+        honeycomb.canvas.color = Utilities.random(honeycomb.seed, "canvasColor", 2) == 0 ? "White" : "Black";
         honeycomb.canvas.size = 810;
         honeycomb.canvas.hexagonSize = 72;
         honeycomb.canvas.maxHexagonsPerLine = 8; // (810 (canvasSize) - 90 (padding) / 72 (hexagon size)) - 1 = 8
@@ -588,8 +598,8 @@ library HoneycombsArt {
         honeycomb.baseHexagon.path = getHexagonPath(honeycomb.baseHexagon.hexagonType);
         honeycomb.baseHexagon.strokeWidth = uint8(Utilities.random(honeycomb.seed, "strokeWidth", 15) + 3);
         honeycomb.baseHexagon.fillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0
-            ? "white"
-            : "black";
+            ? "White"
+            : "Black";
 
         console.log("Base Hexagon Type: %s", honeycomb.baseHexagon.hexagonType);
         console.log("Base Hexagon Stroke Width: %s", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth));
@@ -601,7 +611,10 @@ library HoneycombsArt {
          * Note: Triangles have unique rotation options (artist design choice).
          */
         honeycomb.grid.shape = uint8(Utilities.random(honeycomb.seed, "gridShape", 4));
-        if (honeycomb.grid.shape == uint8(SHAPE.RANDOM)) honeycomb.baseHexagon.hexagonType = uint8(HEXAGON_TYPE.POINTY);
+        if (honeycomb.grid.shape == uint8(SHAPE.RANDOM)) {
+            honeycomb.baseHexagon.hexagonType = uint8(HEXAGON_TYPE.POINTY);
+            honeycomb.baseHexagon.path = getHexagonPath(honeycomb.baseHexagon.hexagonType);
+        }
 
         honeycomb.grid.rotation = honeycomb.grid.shape == uint8(SHAPE.TRIANGLE)
             ? uint16(Utilities.random(honeycomb.seed, "rotation", 4) * 90)

@@ -83,6 +83,13 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     function resolveEpochIfNecessary() public {
         Epoch storage currentEpoch = honeycombs.epochs[honeycombs.epoch];
 
+        // console.log("\nHONEYCOMBS.sol Stored Epoch %s", honeycombs.epoch);
+        // console.log("HONEYCOMBS.sol Current Committed: %s", currentEpoch.committed);
+        // console.log("HONEYCOMBS.sol Current Reveal: %s", currentEpoch.revealed);
+        // console.log("HONEYCOMBS.sol Current Reveal Block: %s", currentEpoch.revealBlock);
+        // console.log("HONEYCOMBS.sol Current Randomness: %s", currentEpoch.randomness);
+        // console.log("HONEYCOMBS.sol Block number: %s", block.number);
+
         if (
             // If epoch has not been committed,
             currentEpoch.committed == false ||
@@ -94,6 +101,8 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
             currentEpoch.revealBlock = uint64(block.number + 50);
             currentEpoch.committed = true;
         } else if (block.number > currentEpoch.revealBlock) {
+            // console.log("HONEYCOMBS.sol SETTING REVEALED");
+
             // Epoch has been committed and is within range to be revealed.
             // Set its randomness to the target block hash.
             currentEpoch.randomness = uint128(
