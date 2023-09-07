@@ -652,7 +652,7 @@ library HoneycombsArt {
         if (!honeycomb.isRevealed) {
             // prettier-ignore
             honeycomb.svg = abi.encodePacked(
-                '<svg viewBox="0 0 810 810" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:white;">',
+                '<svg viewBox="0 0 810 810" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:black;">',
                     '<g id="logo" transform="translate(220, 220)">',
                         '<g id="hexagon" transform="translate(17.089965000000007,17.089965000000007), scale(0.91)">',
                             '<path transform="translate(-37.98, -37.98), scale(28.48375)" fill="#181818"',

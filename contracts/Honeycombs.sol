@@ -14,6 +14,7 @@ import "./standards/HONEYCOMBS721.sol";
     - [] Batch minting
     - [] Add internal counter for minted tokens
     - [] mintHoneycomb instead of mint for bots protection?
+    - [] Add delegateCash to mint function
 
     - [] Verify and remove MetadataUpdate functionality - used originally for compositing / sacrificing
  */
