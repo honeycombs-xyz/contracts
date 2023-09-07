@@ -10,7 +10,11 @@ import "./standards/HONEYCOMBS721.sol";
 /**
     TODO List:
     - [] Add product conditions for when not allowed to mint a new Honeycomb - maxSupply, etc
-    - [] Should we add ability to mint multiple Honeycombs at once?
+    - [] Limit 5 per walelt
+    - [] Batch minting
+    - [] Add internal counter for minted tokens
+    - [] mintHoneycomb instead of mint for bots protection?
+
     - [] Verify and remove MetadataUpdate functionality - used originally for compositing / sacrificing
  */
 

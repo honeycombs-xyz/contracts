@@ -9,9 +9,6 @@ import "hardhat/console.sol";
 
 /**
     TODO
-    - [] Unit test that randomness creates different outcomes for each block and different tokenIds
-    - [] Unit test random for hexagon array of length rows actually works in getHexagonGrid() + individual salt index
-    - [] Add art for isRevealed = false
     - [] Remove console.logs
  */
 
@@ -259,12 +256,17 @@ library HoneycombsArt {
         IHoneycombs.Grid memory grid
     ) public pure returns (IHoneycombs.Grid memory) {
         // Compute grid properties.
-        grid.rowDistance =
-            honeycomb.canvas.hexagonSize -
-            ((honeycomb.canvas.hexagonSize / 4) - ((3 * honeycomb.baseHexagon.strokeWidth) / 4));
-        grid.columnDistance = honeycomb.canvas.hexagonSize / 2;
-        uint16 gridWidth = grid.longestRowCount * honeycomb.canvas.hexagonSize + honeycomb.baseHexagon.strokeWidth;
-        uint16 gridHeight = grid.rows * honeycomb.canvas.hexagonSize + honeycomb.baseHexagon.strokeWidth;
+        grid.rowDistance = ((3 * honeycomb.canvas.hexagonSize) / 4) + 7; // 7 is a relatively arbitrary buffer
+        grid.columnDistance = honeycomb.canvas.hexagonSize / 2 - 1;
+        uint16 gridHeight = honeycomb.canvas.hexagonSize + 7 + ((grid.rows - 1) * grid.rowDistance);
+        uint16 gridWidth = grid.longestRowCount * (honeycomb.canvas.hexagonSize - 2);
+
+        // console.log("Grid Row Distance: %s", Utilities.uint2str(grid.rowDistance));
+        // console.log("Grid Column Distance: %s", Utilities.uint2str(grid.columnDistance));
+        // console.log("Grid Longest Row Count: %s", Utilities.uint2str(grid.longestRowCount));
+        // console.log("Grid Rows: %s", Utilities.uint2str(grid.rows));
+        // console.log("Grid Width: %s", Utilities.uint2str(gridWidth));
+        // console.log("Grid Height: %s", Utilities.uint2str(gridHeight));
 
         /**
          * Swap variables if it is a flat top hexagon (this math assumes pointy top as default). Rotating a flat top
@@ -276,8 +278,11 @@ library HoneycombsArt {
         }
 
         // Compute grid positioning.
-        grid.gridX = (810 - gridWidth) / 2 - (honeycomb.baseHexagon.strokeWidth / 2);
-        grid.gridY = (810 - gridHeight) / 2;
+        grid.gridX = (honeycomb.canvas.size - gridWidth) / 2;
+        grid.gridY = (honeycomb.canvas.size - gridHeight) / 2;
+
+        // console.log("Grid X: %s", Utilities.uint2str(grid.gridX));
+        // console.log("Grid Y: %s", Utilities.uint2str(grid.gridY));
 
         return grid;
     }
@@ -647,9 +652,17 @@ library HoneycombsArt {
         if (!honeycomb.isRevealed) {
             // prettier-ignore
             honeycomb.svg = abi.encodePacked(
-                '<svg viewBox="0 0 810 810" fill="none" xmlns="http://www.w3.org/2000/svg"',
-                    'style="width:100%;background:black;">',
-                    '<rect width="810" height="810" fill="black"/>',
+                '<svg viewBox="0 0 810 810" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:white;">',
+                    '<g id="logo" transform="translate(220, 220)">',
+                        '<g id="hexagon" transform="translate(17.089965000000007,17.089965000000007), scale(0.91)">',
+                            '<path transform="translate(-37.98, -37.98), scale(28.48375)" fill="#181818"',
+                                'd="M9.166.33a2.25 2.25 0 00-2.332 0l-5.25 3.182A2.25 2.25 0 00.5 5.436v5.128a2.25 2.25 0 001.084 1.924l5.25 3.182a2.25 2.25 0 002.332 0l5.25-3.182a2.25 2.25 0 001.084-1.924V5.436a2.25 2.25 0 00-1.084-1.924L9.166.33z">',
+                            '</path>',
+                        '</g>'
+                        '<g id="hummingbird" stroke-linecap="round" stroke-linejoin="round" stroke="#ffc107" stroke-width="6">',
+                            '<path d="M366.314,97.749c-0.129-1.144-1.544-1.144-2.389-1.144c-6.758,0-37.499,4.942-62.82,13.081 c-1.638,0.527-2.923,0.783-3.928,0.783c-1.961,0-2.722-0.928-4.254-3.029c-1.848-2.533-4.379-6.001-11.174-8.914 c-2.804-1.202-6.057-1.812-9.667-1.812c-14.221,0-32.199,9.312-42.749,22.142c-0.066,0.08-0.103,0.096-0.107,0.096 c-0.913,0-4.089-3.564-9.577-17.062c-4.013-9.87-8.136-22.368-10.504-31.842c-3.553-14.212-13.878-34.195-20.71-47.417 c-2.915-5.642-5.218-10.098-5.797-11.836c-0.447-1.339-1.15-2.019-2.091-2.019c-0.604,0-1.184,0.3-1.773,0.917 c-6.658,6.983-20.269,65.253-19.417,83.132c0.699,14.682,12.291,24.61,17.861,29.381c0.659,0.564,1.363,1.167,1.911,1.67 c-2.964-1.06-9.171-6.137-17.406-12.873c-11.881-9.718-29.836-24.403-54.152-40.453c-34.064-22.484-55.885-44.77-68.922-58.084 C29.964,3.599,26.338,0,23.791,0c-0.605,0-1.707,0.227-2.278,1.75c-2.924,7.798,0.754,88.419,37.074,132.002 c20.279,24.335,46.136,36.829,63.246,45.097c9.859,4.764,17.647,8.527,18.851,12.058c0.273,0.803,0.203,1.573-0.223,2.425 c-1.619,3.238-4.439,7.193-8.011,12.202c-9.829,13.783-24.682,34.613-35.555,69.335c-4.886,15.601-55.963,70.253-69.247,83.537 c-0.648,0.648-15.847,15.917-14.06,20.229c0.142,0.344,0.613,1.143,1.908,1.143c3.176,0,11.554-5.442,24.902-16.195 c17.47-14.073,29.399-25.848,38.11-34.452c8.477-8.374,13.784-13.596,17.427-14.161c-0.333,1.784-1.385,6.367-4.576,17.926 c-0.077,0.279-0.238,0.938,0.127,1.418l0.355,0.576h0.495c0.001,0,0.002,0,0.003,0c0.773,0,1.172-0.618,4.53-4.786 c10.244-12.714,41.417-51.561,84.722-60.067c25.376-4.985,56.886-28.519,68.008-63.854c16.822-53.439,30.902-87.056,105.176-104.081 C366.502,99.413,366.428,98.751,366.314,97.749z" />'
+                        '</g>',
+                    '</g>',
                 '</svg>'
             );
         } else {

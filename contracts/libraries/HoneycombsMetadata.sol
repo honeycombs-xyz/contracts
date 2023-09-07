@@ -22,7 +22,7 @@ library HoneycombsMetadata {
         bytes memory metadata = abi.encodePacked(
             '{',
                 '"name": "Honeycombs ', Utilities.uint2str(tokenId), '",',
-                '"description": "You are searching the world for treasure, but the real treasure is yourself. - Rumi,',
+                '"description": "You are searching the world for treasure, but the real treasure is yourself. - Rumi",',
                 '"image": ',
                     '"data:image/svg+xml;base64,',
                     Base64.encode(honeycomb.svg),
