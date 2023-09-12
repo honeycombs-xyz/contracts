@@ -13,6 +13,7 @@ import "./standards/HONEYCOMBS721.sol";
     - [] Limit 5 per walelt
     - [] Batch minting
     - [] Add internal counter for minted tokens
+    - [] Auto reserve 99 and 100th for artist and Fellowship
     - [] mintHoneycomb instead of mint for bots protection?
     - [] Add delegateCash to mint function
 

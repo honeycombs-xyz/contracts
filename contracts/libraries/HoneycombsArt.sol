@@ -653,7 +653,8 @@ library HoneycombsArt {
             // prettier-ignore
             honeycomb.svg = abi.encodePacked(
                 '<svg viewBox="0 0 810 810" fill="#ffffff" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:black;">',
-                    '<g id="logo" transform="translate(220, 220)">',
+                    '<rect width="810" height="810" fill="black" transform="translate(-37.98, -37.98)" />',
+                    '<g id="logo" transform="translate(200, 200)">',
                         '<g id="hexagon" transform="translate(17.089965000000007,17.089965000000007), scale(0.91)">',
                             '<path transform="translate(-37.98, -37.98), scale(28.48375)" fill="#181818"',
                                 'd="M9.166.33a2.25 2.25 0 00-2.332 0l-5.25 3.182A2.25 2.25 0 00.5 5.436v5.128a2.25 2.25 0 001.084 1.924l5.25 3.182a2.25 2.25 0 002.332 0l5.25-3.182a2.25 2.25 0 001.084-1.924V5.436a2.25 2.25 0 00-1.084-1.924L9.166.33z">',

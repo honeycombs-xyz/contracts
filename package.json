@@ -1,7 +1,6 @@
 {
   "name": "honeycombs",
   "version": "0.1.0",
-  "license": "GPL",
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.7",
