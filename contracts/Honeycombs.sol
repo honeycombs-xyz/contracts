@@ -9,15 +9,11 @@ import "./standards/HONEYCOMBS721.sol";
 
 /**
     TODO List:
-    - [] Add product conditions for when not allowed to mint a new Honeycomb - maxSupply, etc
-    - [] Limit 5 per walelt
-    - [] Batch minting
-    - [] Add internal counter for minted tokens
-    - [] Auto reserve 99 and 100th for artist and Fellowship
-    - [] mintHoneycomb instead of mint for bots protection?
+    - [] Remove recipient from mint function
     - [] Add delegateCash to mint function
-
-    - [] Verify and remove MetadataUpdate functionality - used originally for compositing / sacrificing
+    - [] Fix smart contract size
+    
+    - [] UPDATE reserve addresses
  */
 
 /**
@@ -29,72 +25,105 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     /// @dev We use this database for persistent storage.
     Honeycombs honeycombs;
 
+    uint256 public constant MAX_SUPPLY = 10000; // Maximum supply of Honeycombs
+    uint256 public constant MINT_PRICE = 0.1 ether; // Price to mint one Honeycomb
+    uint256 public constant MAX_MINT_PER_ADDRESS = 5; // Maximum NFTs per wallet address
+    uint256 public constant AUTO_RESERVE_FREQUENCY = 100; // Frequency of auto-reserve
+    address public reserveAddress1; // First address to auto reserve Honeycombs for
+    address public reserveAddress2; // Second address to auto reserve Honeycombs for
+
+    // Number of mints per address
+    mapping(address => uint256) private _mintedCounts;
+
     /// @dev Initializes the Honeycombs contract.
     constructor() {
         honeycombs.day0 = uint32(block.timestamp);
         honeycombs.epoch = 1;
+        reserveAddress1 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
+        reserveAddress2 = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
     }
 
-    /// @notice Mint a new Honeycomb.
-    /// @param tokenId The token ID to mint.
+    /// @notice Mint honeycombs.
+    /// @param numberOfTokens The number of tokens to mint.
     /// @param recipient The address to receive the tokens.
-    function mint(uint256 tokenId, address recipient) external {
-        // Check whether tokenId is positive.
-        if (tokenId < 0) {
-            revert NotAllowed();
-        }
+    function mint(uint256 numberOfTokens, address recipient) public payable {
+        // Check whether mint is allowed.
+        if (numberOfTokens < 1 || numberOfTokens > MAX_MINT_PER_ADDRESS) revert NotAllowed();
+        if (honeycombs.minted + numberOfTokens > MAX_SUPPLY) revert MaxSupplyReached();
+        if (msg.value != MINT_PRICE * numberOfTokens) revert NotExactEth();
+        if (_mintedCounts[msg.sender] + numberOfTokens > MAX_MINT_PER_ADDRESS) revert MaxMintPerAddressReached();
 
         // Initialize new epoch / resolve previous epoch.
         resolveEpochIfNecessary();
 
-        // Initialize our Honeycomb.
-        StoredHoneycomb storage honeycomb = honeycombs.all[tokenId];
-        honeycomb.day = Utilities.day(honeycombs.day0, block.timestamp);
-        honeycomb.epoch = uint32(honeycombs.epoch);
-        honeycomb.seed = uint16(tokenId);
+        // Loop through and mint each Honeycomb.
+        for (uint256 i = 0; i < numberOfTokens; ) {
+            // Check for auto reserving honeycombs (first and second out of every 100).
+            if (honeycombs.minted % AUTO_RESERVE_FREQUENCY == 0) {
+                uint32 reserve1TokenId = ++honeycombs.minted;
+                uint32 reserve2TokenId = ++honeycombs.minted;
 
-        // Mint the original.
-        // If we're minting to a vault, transfer it there.
-        if (msg.sender != recipient) {
-            _safeMintVia(recipient, msg.sender, tokenId);
-        } else {
-            _safeMint(msg.sender, tokenId);
-        }
+                // Initialize Honeycombs.
+                StoredHoneycomb storage honeycomb1 = honeycombs.all[reserve1TokenId];
+                honeycomb1.day = Utilities.day(honeycombs.day0, block.timestamp);
+                honeycomb1.epoch = uint32(honeycombs.epoch);
+                honeycomb1.seed = uint16(reserve1TokenId);
 
-        // Keep track of how many honeycombs have been minted.
-        unchecked {
+                StoredHoneycomb storage honeycomb2 = honeycombs.all[reserve2TokenId];
+                honeycomb2.day = Utilities.day(honeycombs.day0, block.timestamp);
+                honeycomb2.epoch = uint32(honeycombs.epoch);
+                honeycomb2.seed = uint16(reserve2TokenId);
+
+                // Mint to reserve addresses.
+                _safeMint(reserveAddress1, reserve1TokenId);
+                _safeMint(reserveAddress2, reserve2TokenId);
+            }
+
+            // Increment minted counters.
             ++honeycombs.minted;
+            ++_mintedCounts[msg.sender];
+
+            // Initialize our Honeycomb.
+            StoredHoneycomb storage honeycomb = honeycombs.all[honeycombs.minted];
+            honeycomb.day = Utilities.day(honeycombs.day0, block.timestamp);
+            honeycomb.epoch = uint32(honeycombs.epoch);
+            honeycomb.seed = uint16(honeycombs.minted);
+
+            // Mint the original.
+            // If we're minting to a vault, transfer it there.
+            if (msg.sender != recipient) {
+                _safeMintVia(recipient, msg.sender, honeycombs.minted);
+            } else {
+                _safeMint(msg.sender, honeycombs.minted);
+            }
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
     /// @notice Burn a honeycomb.
     /// @param tokenId The token ID to burn.
     /// @dev A common purpose burn method.
-    function burn(uint256 tokenId) external {
+    function burn(uint256 tokenId) public {
         if (!_isApprovedOrOwner(msg.sender, tokenId)) {
             revert NotAllowed();
         }
-
-        // Perform the burn.
-        _burn(tokenId);
 
         // Keep track of supply.
         unchecked {
             ++honeycombs.burned;
         }
+
+        // Perform the burn.
+        _burn(tokenId);
     }
 
     /// @notice Initializes and closes epochs.
     /// @dev Based on the commit-reveal scheme proposed by MouseDev.
     function resolveEpochIfNecessary() public {
         Epoch storage currentEpoch = honeycombs.epochs[honeycombs.epoch];
-
-        // console.log("\nHONEYCOMBS.sol Stored Epoch %s", honeycombs.epoch);
-        // console.log("HONEYCOMBS.sol Current Committed: %s", currentEpoch.committed);
-        // console.log("HONEYCOMBS.sol Current Reveal: %s", currentEpoch.revealed);
-        // console.log("HONEYCOMBS.sol Current Reveal Block: %s", currentEpoch.revealBlock);
-        // console.log("HONEYCOMBS.sol Current Randomness: %s", currentEpoch.randomness);
-        // console.log("HONEYCOMBS.sol Block number: %s", block.number);
 
         if (
             // If epoch has not been committed,
@@ -107,8 +136,6 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
             currentEpoch.revealBlock = uint64(block.number + 50);
             currentEpoch.committed = true;
         } else if (block.number > currentEpoch.revealBlock) {
-            // console.log("HONEYCOMBS.sol SETTING REVEALED");
-
             // Epoch has been committed and is within range to be revealed.
             // Set its randomness to the target block hash.
             currentEpoch.randomness = uint128(

@@ -1,20 +1,20 @@
-import * as dotenv from "dotenv"
+import * as dotenv from 'dotenv';
 
-import "@nomicfoundation/hardhat-chai-matchers"
-import "@nomiclabs/hardhat-etherscan"
-import "@nomiclabs/hardhat-ethers"
-import "@typechain/hardhat"
-import "hardhat-contract-sizer"
-import "hardhat-gas-reporter"
-import "solidity-coverage"
+import '@nomicfoundation/hardhat-chai-matchers';
+import '@nomiclabs/hardhat-etherscan';
+import '@nomiclabs/hardhat-ethers';
+import '@typechain/hardhat';
+import 'hardhat-contract-sizer';
+import 'hardhat-gas-reporter';
+import 'solidity-coverage';
 
-import "./tasks/accounts"
-import "./tasks/deploy"
-import "./tasks/mine"
-import "./tasks/mint"
-import "./tasks/render"
+import './tasks/accounts';
+import './tasks/deploy';
+import './tasks/mine';
+import './tasks/mint';
+import './tasks/render';
 
-dotenv.config()
+dotenv.config();
 
 const HARDHAT_NETWORK_CONFIG = {
   chainId: 1337,
@@ -23,10 +23,10 @@ const HARDHAT_NETWORK_CONFIG = {
     blockNumber: 16501064,
   },
   allowUnlimitedContractSize: true,
-}
+};
 
 const config = {
-  solidity: "0.8.17",
+  solidity: '0.8.17',
   settings: {
     optimizer: {
       enabled: true,
@@ -35,7 +35,7 @@ const config = {
   },
   networks: {
     goerli: {
-      url: process.env.GOERLI_URL || "",
+      url: process.env.GOERLI_URL || '',
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
@@ -47,7 +47,7 @@ const config = {
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
-    currency: "USD",
+    currency: 'USD',
     gasPrice: 20,
   },
   etherscan: {
@@ -56,6 +56,6 @@ const config = {
   mocha: {
     timeout: 120_000_000,
   },
-}
+};
 
-export default config
+export default config;

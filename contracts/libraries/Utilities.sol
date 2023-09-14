@@ -35,26 +35,9 @@ library Utilities {
         return string(bstr);
     }
 
-    /// @dev Get the smallest non zero number
-    function minGt0(uint8 one, uint8 two) internal pure returns (uint8) {
-        return one > two ? two > 0 ? two : one : one;
-    }
-
-    /// @dev Get the smaller number
-    function min(uint8 one, uint8 two) internal pure returns (uint8) {
-        return one < two ? one : two;
-    }
-
     /// @dev Get the larger number
     function max(uint8 one, uint8 two) internal pure returns (uint8) {
         return one > two ? one : two;
-    }
-
-    /// @dev Get the average between two numbers
-    function avg(uint8 one, uint8 two) internal pure returns (uint8 result) {
-        unchecked {
-            result = (one >> 1) + (two >> 1) + (one & two & 1);
-        }
     }
 
     /// @dev Get the absolute difference between two numbers

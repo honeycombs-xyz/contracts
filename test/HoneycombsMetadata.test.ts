@@ -3,37 +3,42 @@ import { loadFixture, mine } from '@nomicfoundation/hardhat-network-helpers';
 import { deployHoneycombs } from './fixtures/deploy';
 import { impersonateAccounts } from './fixtures/impersonate';
 import { mintedFixture } from './fixtures/mint';
-import { USER_1_TOKENS, USER_2_TOKENS, VAULT } from '../helpers/constants';
+import { MAX_MINTS_PER_ADDRESS, VAULT } from '../helpers/constants';
 import { fetchAndRender } from '../helpers/render';
 import { decodeBase64URI } from '../helpers/decode-uri';
+import { ethers } from 'hardhat';
 const { expect } = require('chai');
 
 describe('Metadata', () => {
   it('Should show correct metadata', async () => {
     const { honeycombs } = await loadFixture(mintedFixture);
 
-    const uri = await honeycombs.tokenURI(USER_2_TOKENS[0]);
-    fs.writeFileSync(`test/dist/tokenuri-${USER_2_TOKENS[0]}`, uri);
+    const uri = await honeycombs.tokenURI(MAX_MINTS_PER_ADDRESS);
+    fs.writeFileSync(`test/dist/tokenuri-${MAX_MINTS_PER_ADDRESS}`, uri);
 
-    const uri2 = await honeycombs.tokenURI(USER_2_TOKENS[1]);
-    fs.writeFileSync(`test/dist/tokenuri-${USER_2_TOKENS[1]}`, uri2);
+    const uri2 = await honeycombs.tokenURI(MAX_MINTS_PER_ADDRESS + 1);
+    fs.writeFileSync(`test/dist/tokenuri-${MAX_MINTS_PER_ADDRESS + 1}`, uri2);
   });
 
   it('Should render unrevealed tokens', async () => {
     const { honeycombs } = await loadFixture(deployHoneycombs);
     const { user1 } = await loadFixture(impersonateAccounts);
 
-    await honeycombs.connect(user1).mint(999, VAULT);
-    await fetchAndRender(honeycombs, 999, 'pre_reveal_');
+    await honeycombs
+      .connect(user1)
+      .mint(1, VAULT, { value: ethers.utils.parseEther('0.1') });
+    await fetchAndRender(honeycombs, 1, 'pre_reveal_');
   });
 
   it('Should render metadata for unrevealed tokens', async () => {
     const { honeycombs } = await loadFixture(deployHoneycombs);
     const { user1 } = await loadFixture(impersonateAccounts);
 
-    await honeycombs.connect(user1).mint(999, VAULT);
+    await honeycombs
+      .connect(user1)
+      .mint(1, VAULT, { value: ethers.utils.parseEther('0.1') });
 
-    const metadataURI = await honeycombs.tokenURI(999);
+    const metadataURI = await honeycombs.tokenURI(1);
     expect(decodeBase64URI(metadataURI).attributes).to.deep.equal([
       { trait_type: 'Revealed', value: 'No' },
       { trait_type: 'Day', value: '1' },
@@ -44,13 +49,15 @@ describe('Metadata', () => {
     const { honeycombs } = await loadFixture(deployHoneycombs);
     const { user1 } = await loadFixture(impersonateAccounts);
 
-    await honeycombs.connect(user1).mint(999, VAULT);
+    await honeycombs
+      .connect(user1)
+      .mint(1, VAULT, { value: ethers.utils.parseEther('0.1') });
     await mine(50);
     await honeycombs.resolveEpochIfNecessary();
 
-    const afterReveal = decodeBase64URI(await honeycombs.tokenURI(999));
+    const afterReveal = decodeBase64URI(await honeycombs.tokenURI(1));
     fs.writeFileSync(
-      `test/dist/decoded-tokenuri-999`,
+      `test/dist/decoded-tokenuri-1`,
       JSON.stringify(afterReveal),
     );
     expect(afterReveal.attributes).to.not.have.deep.members([
