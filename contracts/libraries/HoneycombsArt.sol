@@ -5,13 +5,6 @@ import "../interfaces/IHoneycombs.sol";
 import "./Colors.sol";
 import "./Utilities.sol";
 
-import "hardhat/console.sol";
-
-/**
-    TODO
-    - [] Remove console.logs
- */
-
 /**
 @title  HoneycombsArt
 @notice Renders the Honeycombs visuals.
@@ -77,7 +70,6 @@ library HoneycombsArt {
             allColors.length
         );
         stop.color = abi.encodePacked("#", allColors[currentIndex]);
-        // console.log("getLinearGradientStopSvg(): initialIndex", currentIndex);
 
         bytes memory values;
         // Add the initial color.
@@ -98,17 +90,11 @@ library HoneycombsArt {
                 currentIndex = (currentIndex + allColors.length - 2) % allColors.length;
             }
 
-            // console.log("getLinearGradientStopSvg(): i", i);
-            // console.log("getLinearGradientStopSvg(): colorIndex", currentIndex);
-
             values = abi.encodePacked(values, "#", allColors[currentIndex], ";");
-
             unchecked {
                 ++i;
             }
         }
-
-        // console.log("About to exit getLinearGradientStopSvg()");
 
         // Add the last color.
         stop.animationColorValues = abi.encodePacked(values, stop.color);
@@ -122,7 +108,6 @@ library HoneycombsArt {
 
         // Initialize array of stops (id => svgString) for reuse once we reach the max color count.
         GradientStop[] memory stops = new GradientStop[](honeycomb.grid.totalGradients + 1);
-        // console.log("Stops MAX LENGTH length is: ", stops.length);
 
         uint8 stopCount;
         GradientStop memory prevStop = getLinearGradientStopSvg(honeycomb, stopCount);
@@ -133,39 +118,19 @@ library HoneycombsArt {
         for (uint256 i; i < honeycomb.grid.totalGradients; ) {
             GradientStop memory stop;
 
-            // console.log("Stops length is: ", stopCount);
-
             // Get next stop.
             if (stopCount < honeycomb.gradients.chrome) {
-                // console.log("We are generating a new stop.");
                 stop = getLinearGradientStopSvg(honeycomb, stopCount);
                 stops[stopCount] = stop;
                 unchecked {
                     ++stopCount;
                 }
             } else {
-                // console.log("We are reusing a stop.");
                 // Randomly select a stop from existing ones.
                 stop = stops[
                     Utilities.random(honeycomb.seed, abi.encodePacked("stop", Utilities.uint2str(i)), stopCount)
                 ];
-                // console.log("Stop is: ", string(stop.color));
             }
-
-            // // Print out all stop colors.
-            // for (uint256 j; j < 33; ) {
-            //     uint256 index = Utilities.random(
-            //         honeycomb.seed,
-            //         abi.encodePacked("stop", Utilities.uint2str(j)),
-            //         stopCount
-            //     );
-            //     console.log("Stop color is: ", string(stops[index].color));
-            //     unchecked {
-            //         ++j;
-            //     }
-            // }
-
-            // console.log("About to get gradient svg.");
 
             // Get gradients svg based on the base hexagon type.
             if (honeycomb.baseHexagon.hexagonType == uint8(HEXAGON_TYPE.POINTY)) {
@@ -261,13 +226,6 @@ library HoneycombsArt {
         uint16 gridHeight = honeycomb.canvas.hexagonSize + 7 + ((grid.rows - 1) * grid.rowDistance);
         uint16 gridWidth = grid.longestRowCount * (honeycomb.canvas.hexagonSize - 2);
 
-        // console.log("Grid Row Distance: %s", Utilities.uint2str(grid.rowDistance));
-        // console.log("Grid Column Distance: %s", Utilities.uint2str(grid.columnDistance));
-        // console.log("Grid Longest Row Count: %s", Utilities.uint2str(grid.longestRowCount));
-        // console.log("Grid Rows: %s", Utilities.uint2str(grid.rows));
-        // console.log("Grid Width: %s", Utilities.uint2str(gridWidth));
-        // console.log("Grid Height: %s", Utilities.uint2str(gridHeight));
-
         /**
          * Swap variables if it is a flat top hexagon (this math assumes pointy top as default). Rotating a flat top
          * hexagon 90 degrees clockwise results in a pointy top hexagon. This effectively swaps the x and y axis.
@@ -280,9 +238,6 @@ library HoneycombsArt {
         // Compute grid positioning.
         grid.gridX = (honeycomb.canvas.size - gridWidth) / 2;
         grid.gridY = (honeycomb.canvas.size - gridHeight) / 2;
-
-        // console.log("Grid X: %s", Utilities.uint2str(grid.gridX));
-        // console.log("Grid Y: %s", Utilities.uint2str(grid.gridY));
 
         return grid;
     }
@@ -564,13 +519,6 @@ library HoneycombsArt {
         uint128 randomness = honeycombs.epochs[stored.epoch].randomness;
         honeycomb.isRevealed = randomness > 0;
 
-        // console.log("\nRENDER DATA Stored Epoch is %s", stored.epoch);
-        // console.log("RENDER DATA Honeycombs Epoch Committed is %s", honeycombs.epochs[stored.epoch].committed);
-        // console.log("RENDER DATA Honeycombs Epoch Revealed is %s", honeycombs.epochs[stored.epoch].revealed);
-        // console.log("RENDER DATA Honeycombs Epoch Reveal Block is %s", honeycombs.epochs[stored.epoch].revealBlock);
-        // console.log("RENDER DATA Current Block is %s", block.number);
-        // console.log("RENDER DATA Randomness is %s", randomness);
-
         // Exit early if the honeycomb is not revealed.
         if (!honeycomb.isRevealed) {
             return honeycomb;
@@ -585,12 +533,6 @@ library HoneycombsArt {
         honeycomb.canvas.hexagonSize = 72;
         honeycomb.canvas.maxHexagonsPerLine = 8; // (810 (canvasSize) - 90 (padding) / 72 (hexagon size)) - 1 = 8
 
-        console.log("\nSeed is: %s", Utilities.uint2str(honeycomb.seed));
-        console.log("Canvas Color: %s", honeycomb.canvas.color);
-        console.log("Canvas Size: %s", Utilities.uint2str(honeycomb.canvas.size));
-        console.log("Canvas Hexagon Size: %s", Utilities.uint2str(honeycomb.canvas.hexagonSize));
-        console.log("Canvas Max Hexagons Per Line: %s", Utilities.uint2str(honeycomb.canvas.maxHexagonsPerLine));
-
         // Get the base hexagon properties.
         honeycomb.baseHexagon.hexagonType = uint8(
             Utilities.random(honeycomb.seed, "hexagonType", 2) == 0 ? HEXAGON_TYPE.FLAT : HEXAGON_TYPE.POINTY
@@ -600,10 +542,6 @@ library HoneycombsArt {
         honeycomb.baseHexagon.fillColor = Utilities.random(honeycomb.seed, "hexagonFillColor", 2) == 0
             ? "White"
             : "Black";
-
-        console.log("Base Hexagon Type: %s", honeycomb.baseHexagon.hexagonType);
-        console.log("Base Hexagon Stroke Width: %s", Utilities.uint2str(honeycomb.baseHexagon.strokeWidth));
-        console.log("Base Hexagon Fill Color: %s", honeycomb.baseHexagon.fillColor);
 
         /**
          * Get the grid properties, including the actual svg.
@@ -620,24 +558,13 @@ library HoneycombsArt {
             ? uint16(Utilities.random(honeycomb.seed, "rotation", 4) * 90)
             : uint16(Utilities.random(honeycomb.seed, "rotation", 12) * 30);
 
-        console.log("Grid Shape: %s", honeycomb.grid.shape);
-        console.log("Grid Rotation: %s", Utilities.uint2str(honeycomb.grid.rotation));
-
         (honeycomb.grid.svg, honeycomb.grid.totalGradients, honeycomb.grid.rows) = generateGrid(honeycomb);
-
-        console.log("Grid Total Gradients: %s", Utilities.uint2str(honeycomb.grid.totalGradients));
-        console.log("Grid Rows: %s", Utilities.uint2str(honeycomb.grid.rows));
 
         // Get the gradients properties, including the actual svg.
         honeycomb.gradients.chrome = getChrome(uint8(Utilities.random(honeycomb.seed, "chrome", 7)));
         honeycomb.gradients.duration = getDuration(uint16(Utilities.random(honeycomb.seed, "duration", 4)));
         honeycomb.gradients.direction = uint8(Utilities.random(honeycomb.seed, "direction", 2));
-        console.log("Gradients Chrome: %s", honeycomb.gradients.chrome);
-        console.log("Gradients Duration: %s", honeycomb.gradients.duration);
-        console.log("Gradients Direction: %s", honeycomb.gradients.direction);
         honeycomb.gradients.svg = generateGradientsSvg(honeycomb);
-
-        console.log("Done rendering");
     }
 
     /// @dev Generate the complete SVG and its associated data for a honeycomb.
