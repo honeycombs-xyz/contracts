@@ -3,6 +3,7 @@ artifacts/
 cache/
 typechain/
 test/dist
+coverage/
 
 # misc
 secrets.json

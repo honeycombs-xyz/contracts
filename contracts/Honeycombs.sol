@@ -191,4 +191,9 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     function totalSupply() public view returns (uint256) {
         return honeycombs.minted - honeycombs.burned;
     }
+
+    /// @notice Returns how many tokens have been minted.
+    function minted() public view returns (uint256) {
+        return honeycombs.minted;
+    }
 }

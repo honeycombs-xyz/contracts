@@ -50,8 +50,10 @@ For faster runs of your tests and scripts, consider skipping ts-node's type chec
 
 # Contracts
 
+To test, make sure to run tasks with --network localhost.
+
 ## Mainnet
 - Honeycombs: `TODO`
 
-## Goerli
+## Sepolia
 - Honeycombs: `TODO`
