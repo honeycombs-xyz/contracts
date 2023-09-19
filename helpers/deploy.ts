@@ -9,10 +9,30 @@ export const deploy = async (ethers: any) => {
   await colors.deployed();
   console.log(`     Deployed Colors at ${colors.address}`);
 
-  const HoneycombsArt = await ethers.getContractFactory('HoneycombsArt', {
+  const GridArt = await ethers.getContractFactory('GridArt', {
+    libraries: {
+      // Utilities: utils.address,
+    },
+  });
+  const gridArt = await GridArt.deploy();
+  await gridArt.deployed();
+  console.log(`     Deployed GridArt at ${gridArt.address}`);
+
+  const GradientsArt = await ethers.getContractFactory('GradientsArt', {
     libraries: {
       // Utilities: utils.address,
       Colors: colors.address,
+    },
+  });
+  const gradientsArt = await GradientsArt.deploy();
+  await gradientsArt.deployed();
+  console.log(`     Deployed GradientsArt at ${gradientsArt.address}`);
+
+  const HoneycombsArt = await ethers.getContractFactory('HoneycombsArt', {
+    libraries: {
+      // Utilities: utils.address,
+      GridArt: gridArt.address,
+      GradientsArt: gradientsArt.address,
     },
   });
   const honeycombArt = await HoneycombsArt.deploy();

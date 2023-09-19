@@ -9,7 +9,6 @@ import "./standards/HONEYCOMBS721.sol";
 
 /**
     TODO List:
-    - [] Remove recipient from mint function
     - [] Add delegateCash to mint function
     - [] Fix smart contract size
     
