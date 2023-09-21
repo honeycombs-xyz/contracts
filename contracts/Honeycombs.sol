@@ -10,12 +10,6 @@ import "./libraries/Utilities.sol";
 import "./standards/HONEYCOMBS721.sol";
 
 /**
-    TODO List:
-    - [] Add delegateCash to mint function
-    - [] UPDATE reserve addresses
- */
-
-/**
 @title  Honeycombs
 @author Gaurang Patel (adapted from checks.vv contracts)
 @notice You are searching the world for treasure, but the real treasure is yourself. - Rumi
