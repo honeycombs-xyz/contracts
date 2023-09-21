@@ -10,8 +10,6 @@ import "./standards/HONEYCOMBS721.sol";
 /**
     TODO List:
     - [] Add delegateCash to mint function
-    - [] Fix smart contract size
-    
     - [] UPDATE reserve addresses
  */
 
@@ -38,8 +36,8 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
     constructor() {
         honeycombs.day0 = uint32(block.timestamp);
         honeycombs.epoch = 1;
-        reserveAddress1 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
-        reserveAddress2 = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
+        reserveAddress1 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC; // artist
+        reserveAddress2 = 0x90F79bf6EB2c4f870365E785982E1f101E93b906; // fellowship
     }
 
     /// @notice Mint honeycombs.
@@ -51,6 +49,9 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
         if (honeycombs.minted + numberOfTokens > MAX_SUPPLY) revert MaxSupplyReached();
         if (msg.value != MINT_PRICE * numberOfTokens) revert NotExactEth();
         if (_mintedCounts[msg.sender] + numberOfTokens > MAX_MINT_PER_ADDRESS) revert MaxMintPerAddressReached();
+
+        // Calculate the total value to allocate to reserve address 2 (20%).
+        uint256 reserve2Value = (msg.value * 20) / 100;
 
         // Initialize new epoch / resolve previous epoch.
         resolveEpochIfNecessary();
@@ -100,6 +101,9 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
                 ++i;
             }
         }
+
+        // Transfer the reserve value to reserve address 2.
+        payable(reserveAddress2).transfer(reserve2Value);
     }
 
     /// @notice Burn a honeycomb.

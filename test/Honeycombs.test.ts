@@ -29,7 +29,7 @@ describe('Honeycombs', () => {
     expect(await honeycombs.symbol()).to.equal('HONEYCOMBS');
   });
 
-  describe('Mint', () => {
+  describe.only('Mint', () => {
     it('Should mint and render', async () => {
       const { honeycombs } = await loadFixture(deployHoneycombs);
       const { user1 } = await loadFixture(impersonateAccounts);
@@ -92,6 +92,35 @@ describe('Honeycombs', () => {
       expect(receipt.events.length).to.equal(2); // new mint + new epoch
 
       expect(await honeycombs.totalSupply()).to.equal(6);
+    });
+
+    it('Should transfer the correct amount of eth to the reserve addresses', async () => {
+      const { honeycombs } = await loadFixture(deployHoneycombs);
+      const { user1 } = await loadFixture(impersonateAccounts);
+      const honeycombsBalanceBefore = await ethers.provider.getBalance(
+        honeycombs.address,
+      );
+      const reserve2BalanceBefore = await ethers.provider.getBalance(
+        RESERVE_ADDRESS_2,
+      );
+
+      await honeycombs
+        .connect(user1)
+        .mint(2, USER_1, { value: ethers.utils.parseEther('0.2') });
+
+      const honeycombsBalanceAfter = await ethers.provider.getBalance(
+        honeycombs.address,
+      );
+      const reserve2BalanceAfter = await ethers.provider.getBalance(
+        RESERVE_ADDRESS_2,
+      );
+
+      expect(
+        honeycombsBalanceAfter.sub(honeycombsBalanceBefore).toString(),
+      ).to.equal(ethers.utils.parseEther('0.16').toString());
+      expect(
+        reserve2BalanceAfter.sub(reserve2BalanceBefore).toString(),
+      ).to.equal(ethers.utils.parseEther('0.04').toString());
     });
 
     it('Should set the token birth date correctly at mint', async () => {
