@@ -29,7 +29,7 @@ describe('Honeycombs', () => {
     expect(await honeycombs.symbol()).to.equal('HONEYCOMBS');
   });
 
-  describe.only('Mint', () => {
+  describe('Mint', () => {
     it('Should mint and render', async () => {
       const { honeycombs } = await loadFixture(deployHoneycombs);
       const { user1 } = await loadFixture(impersonateAccounts);
@@ -235,6 +235,34 @@ describe('Honeycombs', () => {
       expect(await honeycombs.totalSupply()).to.equal(
         MAX_MINTS_PER_ADDRESS * 2 + 2 - 1,
       );
+    });
+  });
+
+  describe('Withdraw', () => {
+    it('Should not allow non approved operators to withdraw', async () => {
+      const { honeycombs, user2 } = await loadFixture(mintedFixture);
+
+      await expect(
+        honeycombs.connect(user2).withdraw(ethers.utils.parseEther('0.1')),
+      ).to.be.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('Should not allow the owner to withdraw more than the balance', async () => {
+      const { honeycombs } = await loadFixture(mintedFixture);
+
+      await expect(
+        honeycombs.withdraw(ethers.utils.parseEther('100000000')),
+      ).to.be.revertedWithCustomError(honeycombs, 'NotAllowed');
+    });
+
+    it('Should allow the owner to withdraw', async () => {
+      const { honeycombs, user1, user2 } = await loadFixture(mintedFixture);
+
+      expect(
+        await honeycombs
+          .connect(user1)
+          .withdraw(ethers.utils.parseEther('0.1')),
+      ).to.be.not.reverted;
     });
   });
 

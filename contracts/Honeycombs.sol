@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 import "./interfaces/IHoneycombs.sol";
 import "./libraries/HoneycombsArt.sol";
 import "./libraries/HoneycombsMetadata.sol";
@@ -18,7 +20,7 @@ import "./standards/HONEYCOMBS721.sol";
 @author Gaurang Patel (adapted from checks.vv contracts)
 @notice You are searching the world for treasure, but the real treasure is yourself. - Rumi
 */
-contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
+contract Honeycombs is IHoneycombs, HONEYCOMBS721, Ownable {
     /// @dev We use this database for persistent storage.
     Honeycombs honeycombs;
 
@@ -155,6 +157,16 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
             resolveEpochIfNecessary();
         }
     }
+
+    /// @notice Withdraw funds (only callable by the owner).
+    /// @param amount The amount to withdraw.
+    function withdraw(uint256 amount) public onlyOwner {
+        if (address(this).balance < amount) {
+            revert NotAllowed();
+        }
+        payable(owner()).transfer(amount);
+    }
+
 
     /// @notice The identifier of the current epoch
     function getEpoch() public view returns (uint256) {
