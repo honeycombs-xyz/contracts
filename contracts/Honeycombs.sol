@@ -59,7 +59,7 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721 {
         // Loop through and mint each Honeycomb.
         for (uint256 i = 0; i < numberOfTokens; ) {
             // Check for auto reserving honeycombs (first and second out of every 100).
-            if (honeycombs.minted % AUTO_RESERVE_FREQUENCY == 0) {
+            if (honeycombs.minted % AUTO_RESERVE_FREQUENCY == 0 && honeycombs.minted != MAX_SUPPLY) {
                 uint32 reserve1TokenId = ++honeycombs.minted;
                 uint32 reserve2TokenId = ++honeycombs.minted;
 
