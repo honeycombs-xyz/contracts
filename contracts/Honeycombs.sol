@@ -32,8 +32,8 @@ contract Honeycombs is IHoneycombs, HONEYCOMBS721, Ownable {
     constructor() {
         honeycombs.day0 = uint32(block.timestamp);
         honeycombs.epoch = 1;
-        reserveAddress1 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC; // artist
-        reserveAddress2 = 0x90F79bf6EB2c4f870365E785982E1f101E93b906; // fellowship
+        reserveAddress1 = 0x895e58968819E821465857CDbE33B82027527747; // artist
+        reserveAddress2 = 0x1E29711abbc2E350e47D5963C5AC5470b59a1aa4; // fellowship
     }
 
     /// @notice Mint honeycombs.
