@@ -12,7 +12,7 @@ import "./standards/HONEYCOMBS721.sol";
 /**
 @title  Honeycombs
 @author Gaurang Patel (adapted from checks.vv contracts)
-@notice You are searching the world for treasure, but the real treasure is yourself. - Rumi
+@notice The only way you can conquer me is through love and there I am gladly conquered.
 */
 contract Honeycombs is IHoneycombs, HONEYCOMBS721, Ownable {
     /// @dev We use this database for persistent storage.
