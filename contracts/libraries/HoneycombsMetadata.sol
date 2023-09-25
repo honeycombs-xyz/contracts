@@ -21,7 +21,7 @@ library HoneycombsMetadata {
         // prettier-ignore
         bytes memory metadata = abi.encodePacked(
             '{',
-                '"name": "Honeycombs ', Utilities.uint2str(tokenId), '",',
+                '"name": "Honeycomb #', Utilities.uint2str(tokenId), '",',
                 '"description": "You are searching the world for treasure, but the real treasure is yourself. - Rumi",',
                 '"image": ',
                     '"data:image/svg+xml;base64,',
@@ -125,7 +125,7 @@ library HoneycombsMetadata {
                 '<meta charset="UTF-8">',
                 '<meta http-equiv="X-UA-Compatible" content="IE=edge">',
                 '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-                '<title>Check #', Utilities.uint2str(tokenId), '</title>',
+                '<title>Honeycomb #', Utilities.uint2str(tokenId), '</title>',
                 '<style>',
                     'html,',
                     'body {',

@@ -53,6 +53,10 @@ describe('Honeycombs', () => {
       await fetchAndRender(honeycombs, 1, 'post_reveal_');
       await fetchAndRender(honeycombs, 2, 'post_reveal_');
       await fetchAndRender(honeycombs, 3, 'post_reveal_');
+
+      // verify final balance of smart contract (80% of 0.1 eth)
+      const balance = await ethers.provider.getBalance(honeycombs.address);
+      expect(balance).to.equal(ethers.utils.parseEther('0.08'));
     });
 
     it('Should allow multiple mints', async () => {

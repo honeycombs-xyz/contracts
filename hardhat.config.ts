@@ -13,6 +13,8 @@ import './tasks/deploy';
 import './tasks/mine';
 import './tasks/mint';
 import './tasks/render';
+import './tasks/withdraw';
+import './tasks/resolveEpoch';
 
 dotenv.config();
 
@@ -20,9 +22,10 @@ const HARDHAT_NETWORK_CONFIG = {
   chainId: 1337,
   forking: {
     url: process.env.MAINNET_URL || '',
-    blockNumber: 16501065,
+    blockNumber: 16501065
   },
   allowUnlimitedContractSize: true,
+
 };
 
 const config = {
@@ -40,7 +43,7 @@ const config = {
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     localhost: {
-      ...HARDHAT_NETWORK_CONFIG,
+      ...HARDHAT_NETWORK_CONFIG
     },
     hardhat: HARDHAT_NETWORK_CONFIG,
   },
