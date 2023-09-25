@@ -56,4 +56,4 @@ To test, make sure to run tasks with --network localhost.
 - Honeycombs: `TODO`
 
 ## Sepolia
-- Honeycombs: `TODO`
+- Honeycombs: `0xBBB0334d86eDfCc53Bc9dee3eDcD6dFfd9bBc135`

@@ -22,7 +22,7 @@ const HARDHAT_NETWORK_CONFIG = {
   chainId: 1337,
   forking: {
     url: process.env.MAINNET_URL || '',
-    blockNumber: 16501065
+    blockNumber: 16501065,
   },
   allowUnlimitedContractSize: true,
 
@@ -40,7 +40,17 @@ const config = {
     sepolia: {
       url: process.env.SEPOLIA_URL || '',
       accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+        // use mnemonic if defined, otherwise use private key
+        process.env.MNEMONIC !== undefined
+          ? {
+              mnemonic: process.env.MNEMONIC,
+              path: "m/44'/60'/0'/0",
+              initialIndex: 0,
+              count: 1,
+            }
+          : process.env.PRIVATE_KEY !== undefined
+          ? [process.env.PRIVATE_KEY]
+          : [],
     },
     localhost: {
       ...HARDHAT_NETWORK_CONFIG
