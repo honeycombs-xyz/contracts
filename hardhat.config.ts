@@ -52,6 +52,19 @@ const config = {
           ? [process.env.PRIVATE_KEY]
           : [],
     },
+    mainnet: {
+      url: process.env.MAINNET_URL || '',
+      accounts:
+        // use mnemonic if defined
+        process.env.MNEMONIC !== undefined
+          ? {
+              mnemonic: process.env.MNEMONIC,
+              path: "m/44'/60'/0'/0",
+              initialIndex: 0,
+              count: 1,
+            }
+          : [],
+    },
     localhost: {
       ...HARDHAT_NETWORK_CONFIG
     },
